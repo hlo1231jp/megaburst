@@ -412,6 +412,11 @@ function mdHead() {
   for (const s of [-1, 1]) { // brow plates
     x.save(); x.fillStyle = '#4a0c06'; x.beginPath(); x.moveTo(85 + s * 14, 92); x.lineTo(85 + s * 48, 78); x.lineTo(85 + s * 44, 92); x.closePath(); x.fill(); x.restore();
   }
+  x.save(); trace(x, head); x.clip(); // scales: rows of small arcs
+  x.strokeStyle = 'rgba(60,8,4,0.45)'; x.lineWidth = 1.5;
+  for (let yy = 30; yy < 150; yy += 9) for (let xx = 30 + (yy % 18 ? 6 : 0); xx < 140; xx += 12) { x.beginPath(); x.arc(xx, yy, 6, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke(); }
+  x.restore();
+  x.fillStyle = '#fff4dc'; for (const fx of [70, 78, 92, 100]) { x.beginPath(); x.moveTo(fx - 3, 144); x.lineTo(fx, 156); x.lineTo(fx + 3, 144); x.fill(); } // upper fangs
   eye(x, 62, 102, 10, '#ffe020', [0, 0.5]); eye(x, 108, 102, 10, '#ffe020', [0, 0.5]);
   for (const s of [-1, 1]) { x.fillStyle = '#1a0402'; x.beginPath(); x.ellipse(85 + s * 9, 140, 3, 5, 0, 0, Math.PI * 2); x.fill(); } // nostrils
   return c;
@@ -591,6 +596,11 @@ function fbBody() {
   shade(x, [[100, 214], [88, 170], [92, 140], [108, 140], [112, 170]], '#e8f8ff', '#ffffff', '#4a7a9a', { lw: 3 }); // horn
   shade(x, [[100, 120], [140, 132], [150, 160], [100, 180], [50, 160], [60, 132]], '#2a4a7a', '#8ab8e8', '#0a1a30', { lw: 4 }); // head
   for (const s of [-1, 1]) shade(x, [[100 + s * 34, 150], [100 + s * 60, 176], [100 + s * 46, 184], [100 + s * 26, 166]], '#d8f0ff', '#ffffff', '#3a6a8a', { gloss: false, lw: 2 }); // mandibles
+  for (const s of [-1, 1]) { // antennae with ice crystals at the tips
+    x.save(); x.strokeStyle = '#0a1a30'; x.lineWidth = 4; x.lineCap = 'round'; x.beginPath(); x.moveTo(100 + s * 20, 128); x.quadraticCurveTo(100 + s * 70, 110, 100 + s * 92, 150); x.stroke(); x.restore();
+    shade(x, [[100 + s * 92, 140], [100 + s * 100, 152], [100 + s * 92, 166], [100 + s * 84, 152]], '#c8f0ff', '#ffffff', '#3a7aaa', { gloss: false, lw: 1.5 });
+  }
+  facets(x, [[100, 214], [88, 170], [92, 140], [108, 140], [112, 170]], [[[96, 146], [98, 200]]], 'rgba(255,255,255,0.95)', 3); // horn shine
   eye(x, 74, 148, 9, '#ff3050'); eye(x, 126, 148, 9, '#ff3050');
   const tho = [[100, 50], [156, 62], [172, 100], [150, 130], [100, 138], [50, 130], [28, 100], [44, 62]];
   shade(x, tho, '#3a6aa0', '#b8e0ff', '#0a1a30', { rim: 'rgba(200,240,255,0.8)', lw: 4 });
@@ -751,6 +761,8 @@ function eelHead() {
   const h = [[75, 10], [112, 30], [124, 70], [108, 118], [75, 140], [42, 118], [26, 70], [38, 30]];
   shade(x, h, '#1a3a6a', '#7ab0ff', '#060e20', { rim: 'rgba(200,255,120,0.7)', lw: 4 });
   x.save(); trace(x, h); x.clip(); for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(200,255,64,0.8)'; x.beginPath(); x.arc(52 + (i % 2) * 46, 40 + Math.floor(i / 2) * 22, 4, 0, Math.PI * 2); x.fill(); } x.restore();
+  for (const s of [-1, 1]) bolt(x, [[75 + s * 30, 120], [75 + s * 52, 128], [75 + s * 46, 136], [75 + s * 68, 146]], '#e8ff80', 3); // electric whiskers
+  x.fillStyle = '#fff'; for (const fx of [62, 70, 80, 88]) { x.beginPath(); x.moveTo(fx - 3, 128); x.lineTo(fx, 138); x.lineTo(fx + 3, 128); x.fill(); } // fangs
   eye(x, 54, 92, 9, '#ffe020', [0, 0.5]); eye(x, 96, 92, 9, '#ffe020', [0, 0.5]);
   return c;
 }
@@ -895,7 +907,12 @@ function jgCore() {
   const c = C(180, 180), x = c.getContext('2d');
   shade(x, [[90, 6], [150, 30], [174, 90], [150, 150], [90, 174], [30, 150], [6, 90], [30, 30]], ...STEEL, { lw: 5, rim: 'rgba(255,220,120,0.6)' });
   rivets(x, [[90, 18], [160, 90], [90, 162], [20, 90], [44, 44], [136, 44], [44, 136], [136, 136]], 4);
+  for (let i = 0; i < 6; i++) { // cables from the rim to the core
+    const a = i * Math.PI / 3 + 0.3; x.save(); x.strokeStyle = i % 2 ? '#c04020' : '#2a2e3a'; x.lineWidth = 6; x.lineCap = 'round';
+    x.beginPath(); x.moveTo(90 + Math.cos(a) * 80, 90 + Math.sin(a) * 80); x.quadraticCurveTo(90 + Math.cos(a + 0.5) * 60, 90 + Math.sin(a + 0.5) * 60, 90 + Math.cos(a) * 44, 90 + Math.sin(a) * 44); x.stroke(); x.restore();
+  }
   shade(x, { ellipse: [90, 90, 46, 46] }, '#3a1a0a', '#a0603a', '#0a0402', { gloss: false });
+  x.save(); x.strokeStyle = 'rgba(255,170,60,0.6)'; x.lineWidth = 3; x.beginPath(); x.arc(90, 90, 34, 0, Math.PI * 2); x.stroke(); x.beginPath(); x.arc(90, 90, 20, 0, Math.PI * 2); x.stroke(); x.restore(); // reactor rings
   return c;
 }
 function jgHead() {
@@ -976,6 +993,10 @@ function body() { // a fleshy armoured disc with veins
   for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; x.beginPath(); x.moveTo(170 + Math.cos(a) * 60, 150 + Math.sin(a) * 50); x.quadraticCurveTo(170 + Math.cos(a + 0.3) * (100 + rnd() * 40), 150 + Math.sin(a + 0.3) * 90, 170 + Math.cos(a) * 160, 150 + Math.sin(a) * 140); x.stroke(); }
   x.restore();
   shade(x, { ellipse: [170, 150, 62, 56] }, '#2a0820', '#8a3a70', '#0a0008', { gloss: false, lw: 4 }); // eye socket
+  for (let i = 0; i < 16; i++) { // a ring of teeth around the eye
+    const a = i * Math.PI / 8, cx = 170 + Math.cos(a) * 66, cy = 150 + Math.sin(a) * 60, tx = 170 + Math.cos(a) * 54, ty = 150 + Math.sin(a) * 49;
+    x.fillStyle = '#f0e0d0'; x.strokeStyle = '#3a1020'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(cx + Math.cos(a + 1.57) * 6, cy + Math.sin(a + 1.57) * 6); x.lineTo(tx, ty); x.lineTo(cx - Math.cos(a + 1.57) * 6, cy - Math.sin(a + 1.57) * 6); x.closePath(); x.fill(); x.stroke();
+  }
   return c;
 }
 function petal(k) { // one armour petal (left side; mirrored for the right)
@@ -1943,6 +1964,81 @@ class Show {
       for (let i = 0; i < 4; i++) setTimeoutFrames(this, i * 10, () => { this.ring(b.cx, b.cy, 120 + i * 120, i % 2 ? '255,255,255' : '255,200,120', 40, 10 - i * 2); this.chunks(b.cx, b.cy, 10, 9); });
     }
     if (this.timers) { for (const tm of this.timers) if (--tm.f === 0) tm.fn(); this.timers = this.timers.filter((tm) => tm.f > 0); }
+    this.updateLife();
+  }
+
+  // ---- bosses look alive and look HURT: smoke / fire / sparks grow with the damage; each boss has its own living light
+  targets() { const g = this.g, out = []; if (g.boss && !g.boss.dead && g.boss.maxHp) out.push(g.boss); if (g.mid && !g.mid.dead && g.mid.maxHp && !g.midDone) out.push(g.mid); return out; }
+  puff(kind, x, y, vx, vy, life, s) { (this.puffs = this.puffs || []).push({ kind, x, y, vx, vy, life, s, t: 0 }); if (this.puffs.length > 220) this.puffs.shift(); }
+  updateLife() {
+    const g = this.g;
+    for (const e of this.targets()) {
+      if (e.cs === 'dying' || e.dying) continue;
+      const dmg = Math.max(0, 1 - e.hp / e.maxHp), rr = (e.r || 50) * 0.8;
+      const at = () => { const a = Math.random() * Math.PI * 2, d = Math.random() * rr; return [e.cx + Math.cos(a) * d, e.cy + Math.sin(a) * d * 0.8]; };
+      if (Math.random() < dmg * 0.45) { const [x, y] = at(); this.puff('smoke', x, y, rnd(-0.3, 0.3), rnd(-1.6, -0.8), 50, 0.5 + dmg); }
+      if (dmg > 0.45 && Math.random() < (dmg - 0.45) * 0.7) { const [x, y] = at(); this.puff('fire', x, y, rnd(-0.5, 0.5), rnd(-2, -1), 22, 0.35 + dmg * 0.3); }
+      if (dmg > 0.3 && Math.random() < dmg * 0.12) { const [x, y] = at(); for (let i = 0; i < 3; i++) this.puff('spark', x, y, rnd(-3, 3), rnd(-3, 1), 16, 0.12); }
+      if (dmg > 0.7 && g.t % 47 === 0) { const [x, y] = at(); g.explosion(x, y, 'S', false); }
+      // living light per boss
+      const T = e.type;
+      if (T === 42 && g.t % 3 === 0 && e.parts) { const ps = e.parts(); const pt = ps[Math.floor(Math.random() * ps.length)]; if (pt) this.puff('ember', pt.x, pt.y, rnd(-0.4, 0.4), rnd(-1.8, -0.8), 40, 0.12); }
+      if (T === 43 && g.t % 4 === 0) this.puff('mist', e.cx + rnd(-90, 90), e.cy - rnd(40, 120), rnd(-0.3, 0.3), rnd(0.6, 1.4), 60, 1.2);
+      if (T === 47 && g.t % 5 === 0) this.puff('spore', e.cx + rnd(-160, 160), e.cy + rnd(-120, 120), rnd(-0.4, 0.4), rnd(-0.8, -0.2), 80, 0.1);
+    }
+    for (const q of this.puffs || []) { q.t++; q.x += q.vx; q.y += q.vy; if (q.kind === 'spark') q.vy += 0.15; }
+    if (this.puffs) this.puffs = this.puffs.filter((q) => q.t < q.life);
+  }
+  // cracks that glow on a damaged boss (always the same cracks for the same boss, more of them the more it is hurt)
+  drawWounds(ctx) {
+    const g = this.g;
+    for (const e of this.targets()) {
+      const dmg = Math.max(0, 1 - e.hp / e.maxHp), n = Math.floor(dmg * 7);
+      if (!n || e.cs === 'dying') continue;
+      if (!e.cracks) { let sd = e.type * 97 + 13; const r = () => ((sd = (sd * 9301 + 49297) % 233280) / 233280); e.cracks = Array.from({ length: 7 }, () => { const a = r() * Math.PI * 2, d = r() * 0.5; const pts = [[Math.cos(a) * d, Math.sin(a) * d]]; for (let k = 0; k < 4; k++) { const l = pts[pts.length - 1]; pts.push([l[0] + Math.cos(a + (r() - 0.5) * 1.6) * 0.16, l[1] + Math.sin(a + (r() - 0.5) * 1.6) * 0.16]); } return pts; }); }
+      const R = (e.r || 50) * 0.9;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      const pulse = 0.6 + Math.sin(g.t * 0.2) * 0.25;
+      for (let i = 0; i < n; i++) for (const [w, col] of [[6, 'rgba(255,90,20,0.35)'], [2, 'rgba(255,230,150,0.9)']]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = pulse; ctx.beginPath();
+        e.cracks[i].forEach(([px, py], k) => ctx[k ? 'lineTo' : 'moveTo'](e.cx + px * R, e.cy + py * R)); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  drawLife(ctx) {
+    const g = this.g;
+    for (const q of this.puffs || []) {
+      const k = q.t / q.life;
+      if (q.kind === 'smoke') draw(ctx, SPR.smoke, q.x, q.y, { scale: q.s * (0.4 + k), alpha: 0.28 * (1 - k), rot: q.t * 0.03 });
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const q of this.puffs || []) {
+      const k = q.t / q.life;
+      if (q.kind === 'fire') draw(ctx, SPR.fire, q.x, q.y, { scale: q.s * (1 - k * 0.5), add: true, alpha: 1 - k, rot: q.t * 0.2 });
+      if (q.kind === 'spark' || q.kind === 'ember') draw(ctx, SPR.sparkWhite, q.x, q.y, { scale: q.s, add: true, alpha: 1 - k });
+      if (q.kind === 'ember') draw(ctx, SPR.fire, q.x, q.y, { scale: 0.12, add: true, alpha: 0.8 * (1 - k) });
+      if (q.kind === 'mist') draw(ctx, SPR.dotWhite, q.x, q.y, { scale: q.s * (0.5 + k), add: true, alpha: 0.12 * (1 - k) });
+      if (q.kind === 'spore') draw(ctx, SPR.dotPink, q.x, q.y, { scale: q.s, add: true, alpha: 0.8 * Math.sin(k * Math.PI) });
+    }
+    // living light of the bosses
+    const b = g.boss;
+    if (b && !b.dead && b.cs !== 'dying') {
+      if (b.type === 42 && b.parts) b.parts().forEach((pt, i) => draw(ctx, SPR.flareRed, pt.x, pt.y, { scale: 0.22, add: true, alpha: 0.25 + 0.25 * Math.sin(g.t * 0.2 - i * 0.7) }));
+      if (b.type === 44 && b.parts && g.t % 3 === 0) { const ps = b.parts(); for (let n = 0; n < 3; n++) { const i = Math.floor(Math.random() * (ps.length - 1)), a = ps[i], c = ps[i + 1]; ctx.strokeStyle = n ? '#fff6a0' : '#ffffff'; ctx.lineWidth = 2; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.moveTo(a.x, a.y); for (let k = 1; k < 4; k++) ctx.lineTo(a.x + (c.x - a.x) * k / 4 + rnd(-12, 12), a.y + (c.y - a.y) * k / 4 + rnd(-12, 12)); ctx.lineTo(c.x, c.y); ctx.stroke(); } }
+      if (b.type === 45 && b.pieces) { ctx.setLineDash([4, 8]); ctx.lineWidth = 2; for (const p of b.pieces) if (!p.gone && p.state === 'orbit') { ctx.strokeStyle = 'rgba(255,170,60,' + (0.25 + 0.2 * Math.sin(g.t * 0.3 + p.slot)).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(b.cx, b.cy); ctx.lineTo(p.cx, p.cy); ctx.stroke(); } ctx.setLineDash([]); }
+      // glowing eyes (positions from the art, turned with the head); red while the boss is about to attack
+      const EYES = { 42: [[-18, 8], [18, 8]], 44: [[-17, 10], [17, 10]], 43: [[-23, 64], [23, 64]], 45: [[-14, -84], [14, -84]], 40: [[-34, 50], [34, 50]] }[b.type];
+      if (EYES) {
+        const angry = b.cs === 'charge' || b.cs === 'aim' || b.cs === 'attack' || b.cs === 'breath', rot = b.head || 0;
+        for (const [ex, ey] of EYES) {
+          const x = b.cx + ex * Math.cos(rot) - ey * Math.sin(rot), y = b.cy + ex * Math.sin(rot) + ey * Math.cos(rot);
+          draw(ctx, angry ? SPR.flareRed : SPR.flareWhite, x, y, { scale: (angry ? 0.3 : 0.16) + Math.sin(g.t * 0.3) * 0.03, add: true, alpha: angry ? 0.9 : 0.55, rot: g.t * 0.05 });
+        }
+      }
+      if (b.type === 47) draw(ctx, SPR.glowPink, b.cx, b.cy, { scale: 1.6 + Math.sin(g.t * 0.08) * 0.1, add: true, alpha: 0.12 + Math.sin(g.t * 0.08) * 0.06 });
+    }
+    ctx.restore();
   }
 
   // ---- drawing
@@ -1959,6 +2055,7 @@ class Show {
     ctx.restore();
   }
   drawFx(ctx) {
+    this.drawWounds(ctx); this.drawLife(ctx);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (const r of this.rings) {
       const k = r.t / r.dur, e = 1 - (1 - k) * (1 - k);
@@ -3340,7 +3437,10 @@ class Game {
     if (this.stageDef.drawBg) this.stageDef.drawBg(ctx, this); else { ctx.fillStyle = '#05030c'; ctx.fillRect(0, 0, W, H); }
     this.show.drawShadows(ctx);
     for (const e of this.enemies) {
-      e.draw(ctx, e, this);
+      if (e.flash > 0) { // a hit makes it shudder
+        const j = e.boss || e.big ? 2 : 3;
+        ctx.save(); ctx.translate((Math.random() - 0.5) * j * 2, (Math.random() - 0.5) * j * 2); e.draw(ctx, e, this); ctx.restore();
+      } else e.draw(ctx, e, this);
       if (e.frozen > 0) { // ice block
         const r = e.r + 8, a = Math.min(1, e.frozen / 30);
         ctx.save(); ctx.globalAlpha = 0.55 * a; ctx.fillStyle = '#bff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
