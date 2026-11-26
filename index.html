@@ -130,6 +130,7 @@ function build() {
   R('fx:dotPink', tint('circle_05', '#ff6699', 128));
   R('fx:dotWhite', tint('circle_05', '#ffffff', 128));
   R('fx:ring', tint('circle_02', '#9cf', 128));
+  R('fx:fire', glowTex('fire_01', '#ff7a18', 128, 0.3)); R('fx:flame', glowTex('flame_01', '#ff9a30', 128, 0.3)); R('fx:smoke', tint('smoke_04', '#3a2622', 128));
   R('fx:gemG', gem('#38e070', '#b8ffcc', '#127a3a'));
   R('fx:gemR', gem('#ff4060', '#ffc0cc', '#8a1428'));
   R('fx:orbB', orb('#4aa8ff')); R('fx:orbW', orb('#e8e8ff'));
@@ -293,10 +294,196 @@ function buildRig(IMG) {
   for (let i = 0; i < 4; i++) R('rock' + i, rockArt(i + 1));
   R('gcShell', bossShell()); R('gcClaw', bossClaw()); R('gcLeg', bossLeg());
 }
-const RIG = (name) => { const k = 'rig:' + name; return [k, 0, 0, SIZES[name][0], SIZES[name][1]]; };
+const RIG = (name) => { const k = 'rig:' + name, s = SIZES[name] || [0, 0]; return [k, 0, 0, s[0], s[1]]; };
+// art made in other files (art_magma.js ...) registers itself here: addArt(IMG, name, canvas)
+function addArt(IMG, name, c) { IMG['rig:' + name] = c; SIZES[name] = [c.width, c.height]; }
 const SIZES = { crab0: [64, 64], crab1: [64, 64], darter0: [72, 72], darter1: [72, 72], armor: [140, 96], pod: [72, 80], rock0: [80, 80], rock1: [80, 80], rock2: [80, 80], rock3: [80, 80], gcShell: [260, 200], gcClaw: [120, 140], gcLeg: [120, 40] };
 
-return { shade, eye, buildRig, RIG };
+return { shade, trace, eye, leg, buildRig, RIG, addArt };
+})();
+
+__M['./art_magma.js'] = (function () {
+// マグマ星 art, drawn in code with the shared painting kit of rig.js (same look as the other monsters):
+//   ember0/1 ヒノコ (fire sprite), slime マグマスライム, turtle ようがんガメ (armoured), bat0/1 ほのおコウモリ,
+//   mid-boss 火山ガメ (vtShell, vtVent, vtHead), boss マグマドラゴン (mdHead, mdJaw, mdSeg, mdTail),
+//   and the planet itself (lava ground tile, the planet seen from space).
+const { addArt, eye, leg, shade, trace } = __M['./rig.js'];
+const C = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+// glowing lava cracks inside a shape
+function cracks(x, path, lines, color = '#ffb020', w = 3) {
+  x.save(); trace(x, path); x.clip();
+  x.shadowColor = '#ff6000'; x.shadowBlur = 10; x.strokeStyle = color; x.lineWidth = w; x.lineCap = 'round'; x.lineJoin = 'round';
+  for (const l of lines) { x.beginPath(); l.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.stroke(); }
+  x.shadowBlur = 0; x.strokeStyle = '#fff6c0'; x.lineWidth = w * 0.35;
+  for (const l of lines) { x.beginPath(); l.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.stroke(); }
+  x.restore();
+}
+const darkEye = (x, cx, cy, r) => {
+  x.fillStyle = '#2a0600'; x.beginPath(); x.ellipse(cx, cy, r * 0.8, r, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(cx - r * 0.25, cy - r * 0.35, r * 0.3, 0, Math.PI * 2); x.fill();
+};
+
+function ember(f) { // a living flame: tail up (it flies down), hot core, two little eyes
+  const c = C(56, 64), x = c.getContext('2d'), k = f ? 5 : -5;
+  shade(x, [[28 + k, 2], [36, 20], [44, 38], [38, 56], [18, 56], [12, 38], [20, 20]], '#ff7a18', '#fff2a0', '#8a1c00', { outline: '#3a0800', rim: 'rgba(255,250,200,0.6)' });
+  const g = x.createRadialGradient(28, 42, 0, 28, 42, 14); g.addColorStop(0, 'rgba(255,255,230,0.95)'); g.addColorStop(1, 'rgba(255,220,80,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(28, 42, 14, 0, Math.PI * 2); x.fill();
+  darkEye(x, 22, 42, 3.5); darkEye(x, 34, 42, 3.5);
+  return c;
+}
+function slime(small) { // molten blob with a dark crust
+  const c = C(small ? 44 : 72, small ? 40 : 64), x = c.getContext('2d'), s = small ? 0.6 : 1;
+  x.scale(s, s);
+  const body = [[36, 6], [56, 14], [66, 36], [58, 56], [36, 62], [14, 56], [6, 36], [16, 14]];
+  shade(x, body, '#ff5a10', '#ffe890', '#601000', { outline: '#2a0600', rim: 'rgba(255,240,180,0.6)' });
+  x.save(); trace(x, body); x.clip(); x.fillStyle = 'rgba(50,14,8,0.75)';
+  for (const [a, b, r] of [[18, 20, 9], [50, 16, 7], [58, 42, 8], [14, 46, 7], [36, 10, 6]]) { x.beginPath(); x.ellipse(a, b, r, r * 0.7, a, 0, Math.PI * 2); x.fill(); }
+  x.restore();
+  eye(x, 26, 36, 6, '#fff060', [0, 0.4]); eye(x, 46, 36, 6, '#fff060', [0, 0.4]);
+  x.strokeStyle = '#2a0600'; x.lineWidth = 3; x.beginPath(); x.arc(36, 46, 8, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+  return c;
+}
+function turtle() { // basalt shell with glowing seams: looks HARD
+  const c = C(128, 120), x = c.getContext('2d');
+  for (const [a, b, r] of [[22, 30, -0.6], [106, 30, 0.6], [26, 86, 0.5], [102, 86, -0.5]]) shade(x, { ellipse: [a, b, 16, 10, r] }, '#8a4a28', '#e0a070', '#2a1008', { gloss: false });
+  shade(x, { ellipse: [64, 102, 17, 15] }, '#9a5a30', '#f0b080', '#2a1008');
+  eye(x, 57, 106, 4, '#ffb020'); eye(x, 71, 106, 4, '#ffb020');
+  const shell = [[64, 6], [104, 20], [118, 56], [104, 90], [64, 100], [24, 90], [10, 56], [24, 20]];
+  shade(x, shell, '#4a3c38', '#b8a8a0', '#120a08', { rim: 'rgba(255,200,160,0.5)', lw: 3 });
+  cracks(x, shell, [[[64, 14], [64, 40], [44, 56], [26, 54]], [[64, 40], [84, 56], [104, 54]], [[44, 56], [50, 84]], [[84, 56], [78, 84]], [[64, 40], [64, 22]]], '#ff9a20', 3);
+  return c;
+}
+function bat(f) { // flame bat, wings up / down
+  const c = C(104, 72), x = c.getContext('2d'), up = f ? -16 : 10;
+  for (const s of [-1, 1]) {
+    const w = [[52, 30], [52 + s * 22, 16 + up * 0.5], [52 + s * 48, 10 + up], [52 + s * 40, 30 + up * 0.4], [52 + s * 46, 46], [52 + s * 26, 40], [52 + s * 14, 46]];
+    shade(x, w, '#a0241a', '#ff8a50', '#300604', { outline: '#200404', gloss: false, lw: 2, rim: 'rgba(255,180,80,0.7)' });
+  }
+  shade(x, { ellipse: [52, 36, 12, 17] }, '#6a1a12', '#e06040', '#200404');
+  for (const s of [-1, 1]) { x.fillStyle = '#6a1a12'; x.beginPath(); x.moveTo(52 + s * 5, 22); x.lineTo(52 + s * 10, 12); x.lineTo(52 + s * 11, 24); x.fill(); }
+  eye(x, 47, 42, 3.5, '#ffe040'); eye(x, 57, 42, 3.5, '#ffe040');
+  return c;
+}
+// ---- mid-boss 火山ガメ
+function vtShell() {
+  const c = C(320, 250), x = c.getContext('2d');
+  for (const [a, b, r] of [[40, 70, -0.7], [280, 70, 0.7], [50, 190, 0.6], [270, 190, -0.6]]) shade(x, { ellipse: [a, b, 40, 22, r] }, '#8a4a28', '#e0a070', '#2a1008', { gloss: false, lw: 4 });
+  const shell = [[160, 8], [250, 30], [300, 110], [270, 200], [160, 232], [50, 200], [20, 110], [70, 30]];
+  shade(x, shell, '#4a3a34', '#b0a098', '#100806', { rim: 'rgba(255,190,150,0.5)', lw: 5 });
+  cracks(x, shell, [[[160, 20], [160, 90], [110, 130], [60, 120]], [[160, 90], [210, 130], [260, 120]], [[110, 130], [120, 200]], [[210, 130], [200, 200]], [[160, 90], [160, 220]]], '#ff8a18', 5);
+  return c;
+}
+function vtVent() { // armoured volcano cone (seen from above): rocky ring and a glowing crater
+  const c = C(96, 96), x = c.getContext('2d');
+  shade(x, [[48, 4], [80, 16], [92, 48], [80, 80], [48, 92], [16, 80], [4, 48], [16, 16]], '#5a4a44', '#c8b8b0', '#140c0a', { rim: 'rgba(255,220,190,0.6)' });
+  const g = x.createRadialGradient(48, 48, 0, 48, 48, 24); g.addColorStop(0, '#fffbe0'); g.addColorStop(0.4, '#ffb020'); g.addColorStop(1, '#801400');
+  x.fillStyle = g; x.beginPath(); x.ellipse(48, 48, 22, 20, 0, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = '#1a0a06'; x.lineWidth = 3; x.stroke();
+  return c;
+}
+function vtHead() {
+  const c = C(100, 90), x = c.getContext('2d');
+  shade(x, [[50, 4], [80, 20], [90, 50], [74, 80], [50, 86], [26, 80], [10, 50], [20, 20]], '#9a5a30', '#f0b080', '#2a1008', { lw: 3 });
+  eye(x, 34, 50, 8, '#ffa020'); eye(x, 66, 50, 8, '#ffa020');
+  x.fillStyle = '#3a1406'; for (const sd of [-1, 1]) { x.beginPath(); x.moveTo(50 + sd * 6, 42); x.lineTo(50 + sd * 30, 30); x.lineTo(50 + sd * 28, 40); x.closePath(); x.fill(); } // angry brows
+  x.strokeStyle = '#2a1008'; x.lineWidth = 3; x.beginPath(); x.moveTo(30, 76); x.quadraticCurveTo(50, 66, 70, 76); x.stroke(); // frown
+  return c;
+}
+// ---- boss マグマドラゴン (faces down: snout at the bottom)
+function mdHead() {
+  const c = C(170, 170), x = c.getContext('2d');
+  for (const s of [-1, 1]) shade(x, [[85 + s * 30, 50], [85 + s * 62, 6], [85 + s * 56, 30], [85 + s * 46, 62]], '#e8d0a8', '#fffbe8', '#5a4028', { gloss: false, lw: 2 }); // horns
+  for (const s of [-1, 1]) shade(x, [[85 + s * 40, 60], [85 + s * 76, 52], [85 + s * 62, 80], [85 + s * 44, 96]], '#7a1a10', '#e05030', '#200404', { gloss: false, lw: 2 }); // frills
+  const head = [[85, 22], [124, 40], [138, 80], [120, 128], [100, 150], [70, 150], [50, 128], [32, 80], [46, 40]];
+  shade(x, head, '#b02a14', '#ff9060', '#2a0604', { rim: 'rgba(255,200,150,0.6)', lw: 4 });
+  cracks(x, head, [[[85, 30], [85, 70]], [[60, 60], [72, 88]], [[110, 60], [98, 88]]], '#ffb020', 3);
+  for (const s of [-1, 1]) { // brow plates
+    x.save(); x.fillStyle = '#4a0c06'; x.beginPath(); x.moveTo(85 + s * 14, 92); x.lineTo(85 + s * 48, 78); x.lineTo(85 + s * 44, 92); x.closePath(); x.fill(); x.restore();
+  }
+  eye(x, 62, 102, 10, '#ffe020', [0, 0.5]); eye(x, 108, 102, 10, '#ffe020', [0, 0.5]);
+  for (const s of [-1, 1]) { x.fillStyle = '#1a0402'; x.beginPath(); x.ellipse(85 + s * 9, 140, 3, 5, 0, 0, Math.PI * 2); x.fill(); } // nostrils
+  return c;
+}
+function mdJaw() { // lower jaw with fangs
+  const c = C(100, 70), x = c.getContext('2d');
+  shade(x, [[16, 8], [50, 4], [84, 8], [78, 40], [50, 64], [22, 40]], '#8a1e10', '#e06040', '#200404', { lw: 3, gloss: false });
+  x.fillStyle = '#fff4dc'; for (const fx of [24, 36, 64, 76]) { x.beginPath(); x.moveTo(fx - 4, 8); x.lineTo(fx, -2 + 14); x.lineTo(fx + 4, 8); x.fill(); }
+  return c;
+}
+function mdSeg() { // armoured body ring with a glowing seam and back spikes
+  const c = C(110, 110), x = c.getContext('2d');
+  for (const s of [-1, 1]) shade(x, [[55 + s * 30, 40], [55 + s * 54, 28], [55 + s * 40, 58]], '#5a1008', '#c04030', '#1a0202', { gloss: false, lw: 2 });
+  const ring = { ellipse: [55, 55, 40, 36] };
+  shade(x, ring, '#9a2410', '#ff8050', '#240402', { rim: 'rgba(255,190,140,0.5)' });
+  cracks(x, ring, [[[22, 55], [40, 50], [55, 58], [70, 50], [88, 55]]], '#ffc030', 4);
+  shade(x, [[55, 10], [64, 34], [46, 34]], '#e8d0a8', '#fffbe8', '#5a4028', { gloss: false, lw: 2 });
+  return c;
+}
+function mdTail() {
+  const c = C(70, 100), x = c.getContext('2d');
+  shade(x, [[35, 96], [56, 50], [50, 14], [35, 4], [20, 14], [14, 50]], '#9a2410', '#ff8050', '#240402', { lw: 3 });
+  cracks(x, [[35, 96], [56, 50], [50, 14], [35, 4], [20, 14], [14, 50]], [[[35, 10], [35, 80]]], '#ffc030', 3);
+  return c;
+}
+// ---- the planet
+function lavaTile() { // 640 x 640 seamless-ish ground: dark basalt, glowing rivers and pools
+  const c = C(640, 640), x = c.getContext('2d');
+  x.fillStyle = '#2a1410'; x.fillRect(0, 0, 640, 640);
+  let s = 7; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 260; i++) { // rock lumps
+    const px = rnd() * 640, py = rnd() * 640, r = 10 + rnd() * 40, l = 24 + rnd() * 24;
+    const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r); g.addColorStop(0, `hsl(15,18%,${l}%)`); g.addColorStop(1, 'rgba(20,10,8,0)');
+    x.fillStyle = g; for (const oy of [-640, 0, 640]) { x.beginPath(); x.arc(px, py + oy, r, 0, Math.PI * 2); x.fill(); }
+  }
+  const river = (pts, w) => {
+    for (const oy of [-640, 0, 640]) {
+      x.save(); x.translate(0, oy); x.lineCap = 'round'; x.lineJoin = 'round';
+      const line = () => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length - 1; i++) x.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2); x.lineTo(...pts[pts.length - 1]); };
+      x.shadowColor = '#ff4000'; x.shadowBlur = 30; x.strokeStyle = '#a01c00'; x.lineWidth = w * 1.6; line(); x.stroke();
+      x.shadowBlur = 12; x.strokeStyle = '#ff7a10'; x.lineWidth = w; line(); x.stroke();
+      x.shadowBlur = 0; x.strokeStyle = '#ffe070'; x.lineWidth = w * 0.3; line(); x.stroke();
+      x.restore();
+    }
+  };
+  river([[120, -20], [180, 120], [90, 260], [150, 420], [110, 660]], 30);
+  river([[520, -20], [470, 160], [560, 330], [500, 500], [530, 660]], 24);
+  river([[150, 420], [300, 380], [470, 160]], 12);
+  river([[90, 260], [0, 300]], 9); river([[560, 330], [640, 360]], 9); river([[300, 380], [330, 560], [300, 660]], 8);
+  for (const [px, py, r] of [[330, 120, 48], [300, 540, 36], [60, 560, 28], [600, 80, 30]]) { // pools
+    const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff7a10'); g.addColorStop(1, 'rgba(120,20,0,0)');
+    x.fillStyle = g; x.beginPath(); x.ellipse(px, py, r * 1.4, r, 0.3, 0, Math.PI * 2); x.fill();
+  }
+  return c;
+}
+function planet() { // the magma planet seen from space (512 px): dark crust plates floating on glowing lava
+  const c = C(512, 512), x = c.getContext('2d'), m = 256, R = 240;
+  x.save(); x.beginPath(); x.arc(m, m, R, 0, Math.PI * 2); x.clip();
+  const lava = x.createRadialGradient(m - 60, m - 60, 10, m, m, R); lava.addColorStop(0, '#fff0a0'); lava.addColorStop(0.4, '#ff8a20'); lava.addColorStop(1, '#a02000');
+  x.fillStyle = lava; x.fillRect(0, 0, 512, 512);
+  let s = 3; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 46; i++) { // crust plates (gaps between them glow)
+    const px = rnd() * 512, py = rnd() * 512, r = 14 + rnd() * 30, n = 7, pts = [];
+    for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2, rr = r * (0.7 + rnd() * 0.3); pts.push([px + Math.cos(a) * rr, py + Math.sin(a) * rr]); }
+    const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r); g.addColorStop(0, '#8a5040'); g.addColorStop(1, '#3a1810');
+    x.fillStyle = g; x.beginPath(); pts.forEach(([a, b], k) => x[k ? 'lineTo' : 'moveTo'](a, b)); x.closePath(); x.fill();
+  }
+  const sh = x.createRadialGradient(m - 110, m - 110, 100, m, m, 290); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.45)');
+  x.fillStyle = sh; x.fillRect(0, 0, 512, 512);
+  x.restore();
+  x.save(); x.shadowColor = '#ff6000'; x.shadowBlur = 30; x.strokeStyle = 'rgba(255,150,60,0.8)'; x.lineWidth = 5; x.beginPath(); x.arc(m, m, R + 2, 0, Math.PI * 2); x.stroke(); x.restore();
+  return c;
+}
+function buildMagmaArt(IMG) {
+  if (typeof document === 'undefined') return;
+  const A = (n, c) => addArt(IMG, n, c);
+  A('ember0', ember(0)); A('ember1', ember(1)); A('slime', slime(false)); A('slimeS', slime(true));
+  A('turtle', turtle()); A('bat0', bat(0)); A('bat1', bat(1));
+  A('vtShell', vtShell()); A('vtVent', vtVent()); A('vtHead', vtHead());
+  A('mdHead', mdHead()); A('mdJaw', mdJaw()); A('mdSeg', mdSeg()); A('mdTail', mdTail());
+  A('lavaTile', lavaTile()); A('magmaPlanet', planet());
+}
+
+return { buildMagmaArt };
 })();
 
 __M['./assets.js'] = (function () {
@@ -304,11 +491,12 @@ __M['./assets.js'] = (function () {
 // textures (Kenney Particle Pack) or drawn in code; ships / backgrounds are loaded through free.js.
 const { loadFx } = __M['./gfx.js'];
 const { buildRig } = __M['./rig.js'];
+const { buildMagmaArt } = __M['./art_magma.js'];
 const IMG = {};
 // the single-file build (build.mjs) embeds every asset as a data: URL in globalThis.__ASSETS
 const assetUrl = (path) => (globalThis.__ASSETS && globalThis.__ASSETS[path]) || path;
 
-const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); };
+const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); };
 
 // [image key, sx, sy, sw, sh]
 const fx = (key, w, h = w) => [key, 0, 0, w, h];
@@ -317,6 +505,7 @@ const SPR = {
   sparkBlue: fx('fx:sparkBlue', 128), sparkWhite: fx('fx:sparkWhite', 128),
   glowPink: fx('fx:glowPink', 256), dotPink: fx('fx:dotPink', 128), dotWhite: fx('fx:dotWhite', 128),
   ring: fx('fx:ring', 128),
+  fire: fx('fx:fire', 128), flame: fx('fx:flame', 128), smoke: fx('fx:smoke', 128),
   // gems (bGreen small, bRed big) and orbs keep their old names
   bGreen: fx('fx:gemG', 32), bRed: fx('fx:gemR', 32), bBlue: fx('fx:orbB', 32), bWhite: fx('fx:orbW', 32),
   shotCyan: fx('fx:shot', 8, 28), missileS: fx('fx:missile', 14, 30),
@@ -402,42 +591,58 @@ function tone(A, t, type, f0, f1, dur, vol, { detune = 0, lp = 0, rev = 0.2 } = 
   g.connect(A.out);
   if (rev && A.rev) { const r = ac.createGain(); r.gain.value = rev; g.connect(r); r.connect(A.rev); }
 }
+// a distorted low tone: the sub-bass alone vanishes on phone speakers, the overtones (150-900 Hz) carry the weight
+function body(A, t, f0, f1, dur, vol, drive = 7) {
+  const { ac } = A, o = ac.createOscillator(), sh = ac.createWaveShaper(), f = ac.createBiquadFilter(), g = ac.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(f1, 20), t + dur);
+  sh.curve = softClip(drive); f.type = 'lowpass'; f.Q.value = 1.5;
+  f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(250, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(sh); sh.connect(f); f.connect(g); g.connect(A.out); o.start(t); o.stop(t + dur + 0.05);
+}
+// a long low rumble after a big blast ("ゴゴゴ…")
+function rumble(A, t, dur, vol) {
+  crunch(A, t, dur, vol, 700, 50, { drive: 4, rev: 0.9 });
+  sub(A, t, 55, 28, dur, vol * 0.8);
+}
 
 // ---- the sounds; v = volume (0..1)
 const SFX = {
-  shot: (A, t, v) => { tone(A, t, 'square', 1400, 500, 0.05, 0.05 * v, { lp: 3000, rev: 0 }); },
+  shot: (A, t, v) => { tone(A, t, 'square', 1100, 300, 0.06, 0.05 * v, { lp: 2500, rev: 0 }); body(A, t, 220, 70, 0.09, 0.22 * v, 5); },
   enemyFire: (A, t, v) => { tone(A, t, 'sawtooth', 300, 120, 0.12, 0.08 * v, { lp: 1200, rev: 0.1 }); },
   // small enemy destroyed: punchy thud + crunch
-  enemyDown: (A, t, v) => { sub(A, t, 130, 40, 0.35, 0.9 * v); crunch(A, t, 0.4, 0.55 * v, 4000, 200, { drive: 5 }); A.duck?.(0.12); },
+  enemyDown: (A, t, v) => { sub(A, t, 130, 40, 0.4, 0.9 * v); body(A, t, 140, 45, 0.35, 0.45 * v); crunch(A, t, 0.55, 0.65 * v, 4000, 120, { drive: 7, rev: 0.4 }); A.duck?.(0.15); },
   explodeS: (A, t, v) => SFX.enemyDown(A, t, v),
   // chain blast / big hit
-  hit: (A, t, v) => { sub(A, t, 110, 30, 0.6, 1.0 * v); crunch(A, t, 0.7, 0.7 * v, 3000, 100, { drive: 6, rev: 0.4 }); tone(A, t, 'square', 2400, 600, 0.06, 0.12 * v, { rev: 0 }); A.duck?.(0.2); },
+  hit: (A, t, v) => { sub(A, t, 110, 30, 0.7, 1.0 * v); body(A, t, 120, 35, 0.6, 0.55 * v, 9); crunch(A, t, 0.9, 0.8 * v, 3000, 70, { drive: 8, rev: 0.6 }); rumble(A, t + 0.1, 0.9, 0.35 * v); tone(A, t, 'square', 2400, 600, 0.06, 0.12 * v, { rev: 0 }); A.duck?.(0.2); },
   damage: (A, t, v) => SFX.hit(A, t, v),
   // player hit: crunch + falling alarm
-  playerHit: (A, t, v) => { sub(A, t, 90, 35, 0.5, 1.0 * v); crunch(A, t, 0.45, 0.8 * v, 2500, 150, { drive: 8 }); tone(A, t + 0.05, 'square', 880, 220, 0.35, 0.15 * v, { lp: 2500 }); },
+  playerHit: (A, t, v) => { sub(A, t, 90, 35, 0.5, 1.0 * v); body(A, t, 110, 40, 0.4, 0.5 * v, 9); crunch(A, t, 0.45, 0.8 * v, 2500, 150, { drive: 8 }); tone(A, t + 0.05, 'square', 880, 220, 0.35, 0.15 * v, { lp: 2500 }); },
   // charge levels: sub thump + bright chord, higher per level
   levelUp1: (A, t, v) => { sub(A, t, 90, 50, 0.25, 0.7 * v); [660, 990].forEach((f) => tone(A, t, 'triangle', f, f, 0.25, 0.18 * v, { rev: 0.4 })); },
   levelUp2: (A, t, v) => { sub(A, t, 100, 50, 0.3, 0.8 * v); [784, 1175, 1568].forEach((f) => tone(A, t, 'triangle', f, f, 0.3, 0.17 * v, { rev: 0.5 })); },
   levelUp3: (A, t, v) => { sub(A, t, 120, 40, 0.6, 1.0 * v); crunch(A, t, 0.3, 0.4 * v, 6000, 800, { drive: 3, rev: 0.6 }); [523, 784, 1046, 1568].forEach((f) => tone(A, t, 'sawtooth', f, f, 0.6, 0.08 * v, { detune: 12, lp: 5000, rev: 0.7 })); },
   heartbeat: (A, t, v) => { sub(A, t, 70, 40, 0.18, 0.8 * v); sub(A, t + 0.16, 60, 35, 0.2, 0.6 * v); },
   // releases
-  release1: (A, t, v) => { sub(A, t, 160, 45, 0.35, 0.9 * v); crunch(A, t, 0.3, 0.5 * v, 5000, 600, { drive: 3, bp: true }); tone(A, t, 'sawtooth', 300, 900, 0.2, 0.12 * v, { lp: 3000 }); },
-  release2: (A, t, v) => { sub(A, t, 70, 30, 1.0, 1.0 * v); crunch(A, t, 0.9, 0.7 * v, 1500, 300, { drive: 6, bp: true, rev: 0.4 }); tone(A, t, 'sawtooth', 55, 50, 0.9, 0.25 * v, { detune: 15, lp: 900, rev: 0.3 }); A.duck?.(0.6); },
+  release1: (A, t, v) => { sub(A, t, 160, 45, 0.4, 0.9 * v); body(A, t, 180, 50, 0.3, 0.45 * v); crunch(A, t, 0.3, 0.5 * v, 5000, 600, { drive: 3, bp: true }); tone(A, t, 'sawtooth', 300, 900, 0.2, 0.12 * v, { lp: 3000 }); },
+  release2: (A, t, v) => { sub(A, t, 70, 30, 1.2, 1.0 * v); body(A, t, 95, 32, 0.9, 0.55 * v, 10); rumble(A, t + 0.15, 1.4, 0.4 * v); crunch(A, t, 0.9, 0.7 * v, 1500, 300, { drive: 6, bp: true, rev: 0.4 }); tone(A, t, 'sawtooth', 55, 50, 0.9, 0.25 * v, { detune: 15, lp: 900, rev: 0.3 }); A.duck?.(0.6); },
   release3: (A, t, v) => {
     tone(A, t, 'square', 3000, 400, 0.08, 0.25 * v, { rev: 0.2 }); // crack
     sub(A, t, 90, 22, 1.6, 1.0 * v); sub(A, t + 0.05, 55, 25, 1.4, 0.8 * v);
     crunch(A, t, 1.8, 0.9 * v, 6000, 60, { drive: 9, rev: 0.8 });
     crunch(A, t + 0.25, 1.2, 0.5 * v, 1200, 80, { drive: 5, rev: 0.6 });
+    body(A, t, 110, 25, 1.4, 0.6 * v, 12); body(A, t + 0.12, 75, 22, 1.2, 0.45 * v, 10);
+    rumble(A, t + 0.3, 2.6, 0.55 * v);
     A.duck?.(1.2);
   },
   // boss / big target destroyed: a rolling series of blasts
-  bossDown: (A, t, v) => { for (let i = 0; i < 5; i++) { const d = i * 0.22; sub(A, t + d, 100 - i * 8, 25, 0.9, 1.0 * v); crunch(A, t + d, 1.0, 0.8 * v, 5000, 60, { drive: 8, rev: 0.7 }); } A.duck?.(1.6); },
+  bossDown: (A, t, v) => { for (let i = 0; i < 5; i++) { const d = i * 0.22; sub(A, t + d, 100 - i * 8, 25, 0.9, 1.0 * v); crunch(A, t + d, 1.0, 0.8 * v, 5000, 60, { drive: 8, rev: 0.7 }); body(A, t + d, 110 - i * 10, 25, 0.9, 0.5 * v, 10); } rumble(A, t + 0.6, 3.0, 0.6 * v); A.duck?.(2.2); },
   gem: (A, t, v) => { [1319, 1760, 2637].forEach((f, i) => tone(A, t + i * 0.035, 'triangle', f, f, 0.12, 0.09 * v, { rev: 0.3 })); },
   superOn: (A, t, v) => { tone(A, t, 'sawtooth', 110, 880, 0.8, 0.2 * v, { detune: 20, lp: 4000, rev: 0.6 }); sub(A, t + 0.75, 120, 30, 0.8, 1.0 * v); [523, 659, 784, 1046].forEach((f) => tone(A, t + 0.75, 'sawtooth', f, f, 0.9, 0.07 * v, { detune: 10, lp: 5000, rev: 0.8 })); },
   warning: (A, t, v) => { for (let i = 0; i < 6; i++) tone(A, t + i * 0.32, 'sawtooth', i % 2 ? 440 : 587, i % 2 ? 440 : 587, 0.3, 0.16 * v, { detune: 8, lp: 2200, rev: 0.4 }); sub(A, t, 50, 40, 2.0, 0.5 * v); },
   weaponGet: (A, t, v) => { [523, 659, 784, 1046, 1319].forEach((f, i) => tone(A, t + i * 0.09, 'triangle', f, f, 0.5, 0.14 * v, { rev: 0.6 })); sub(A, t, 80, 40, 0.5, 0.7 * v); },
   clang: (A, t, v) => { [1800, 2700].forEach((f) => tone(A, t, 'triangle', f, f * 0.98, 0.18, 0.08 * v, { rev: 0.3 })); },
-  megaHit: (A, t, v) => { sub(A, t, 120, 40, 0.25, 0.8 * v); crunch(A, t, 0.25, 0.5 * v, 4000, 300, { drive: 5 }); },
+  megaHit: (A, t, v) => { sub(A, t, 120, 40, 0.3, 0.8 * v); body(A, t, 130, 40, 0.28, 0.5 * v, 8); crunch(A, t, 0.25, 0.5 * v, 4000, 300, { drive: 5 }); },
   tick: (A, t, v) => tone(A, t, 'square', 1500, 1500, 0.02, 0.04 * v, { rev: 0 }),
   heal: (A, t, v) => { [523, 784, 1046, 1568].forEach((f, i) => tone(A, t + i * 0.06, 'triangle', f, f, 0.35, 0.13 * v, { rev: 0.5 })); },
   missiles: (A, t, v) => { crunch(A, t, 0.6, 0.4 * v, 3000, 400, { drive: 3, bp: true, rev: 0.3 }); tone(A, t, 'sawtooth', 200, 600, 0.4, 0.08 * v, { lp: 2500 }); },
@@ -496,23 +701,24 @@ const BGM = {
 // CC0 samples (Kenney "Sci-fi Sounds" / "Impact Sounds", assets/kenney) layered on top of the synthesized SFX.
 // [files (one picked at random), volume, playback rate (below 1 = lower and heavier)]
 const LAYER = {
-  enemyDown: [['explosionCrunch_000', 'explosionCrunch_001', 'explosionCrunch_002'], 0.55, 0.75],
-  hit: [['impactMetal_heavy_000', 'impactMetal_heavy_001'], 0.8, 0.7],
+  enemyDown: [['explosionCrunch_000', 'explosionCrunch_001', 'explosionCrunch_002', 'lab:explode2'], 0.7, 0.68],
+  hit: [['lab:explode2', 'lab:heavy1', 'explosionCrunch_004'], 0.9, 0.62, true],
   damage: [['impactMetal_heavy_000', 'impactMetal_heavy_001'], 0.8, 0.7],
   playerHit: [['impactPunch_heavy_000', 'impactPlate_heavy_000'], 1.0, 0.8],
-  release1: [['impactPunch_heavy_001'], 0.8, 0.7],
-  release2: [['laserLarge_000'], 0.8, 0.55],
-  release3: [['lowFrequency_explosion_000', 'explosionCrunch_004'], 1.0, 0.6, true],
-  bossDown: [['lowFrequency_explosion_001', 'explosionCrunch_004', 'lowFrequency_explosion_000'], 1.0, 0.55, true],
+  release1: [['impactPunch_heavy_001', 'lab:heavy3'], 0.8, 0.7],
+  release2: [['laserLarge_000', 'lab:cannon2'], 0.9, 0.55, true],
+  release3: [['lab:cannon2', 'lowFrequency_explosion_000', 'lab:explode2', 'explosionCrunch_004'], 1.0, 0.55, true],
+  bossDown: [['lab:explode2', 'lowFrequency_explosion_001', 'lab:cannon2', 'explosionCrunch_004', 'lowFrequency_explosion_000', 'lab:explode2'], 1.0, 0.5, true],
   missiles: [['laserRetro_000'], 0.5, 0.8],
   superOn: [['forceField_000'], 0.8, 0.8],
   levelUp3: [['forceField_002'], 0.6, 0.7],
   weaponGet: [['impactBell_heavy_000'], 0.6, 0.8],
   heal: [['forceField_002'], 0.6, 1.2],
   clang: [['impactMetal_000', 'impactBell_heavy_000'], 0.7, 1.1],
-  megaHit: [['impactPunch_heavy_000', 'impactPunch_heavy_001', 'impactMetal_heavy_000'], 0.9, 0.8],
+  megaHit: [['impactPunch_heavy_000', 'impactPunch_heavy_001', 'lab:heavy1'], 0.9, 0.75],
 };
-const LAYER_FILES = [...new Set(Object.values(LAYER).flatMap((l) => l[0]))];
+// a name 'lab:x' is a SoundEffect-Lab sample (from LAB below), the rest are Kenney files
+const LAYER_FILES = [...new Set(Object.values(LAYER).flatMap((l) => l[0]))].filter((n) => !n.startsWith('lab:'));
 // SoundEffect-Lab samples (assets/lab, shared with Muscle Climber): played directly with audio.lab(name)
 const LAB = ['explode2', 'cannon2', 'special', 'kira2', 'levelup', 'charge', 'aura2', 'shakin3', 'title_hit1', 'heart2', 'powerup', 'heavy1', 'heavy3'];
 
@@ -570,7 +776,7 @@ class Audio {
     const [files, v, rate, all] = l, t = this.ac.currentTime;
     const pick = all ? files : [files[Math.floor(Math.random() * files.length)]];
     pick.forEach((n, i) => {
-      const b = this.buf['k:' + n]; if (!b) return;
+      const b = this.buf[n.startsWith('lab:') ? n : 'k:' + n]; if (!b) return;
       const s = this.ac.createBufferSource(); s.buffer = b;
       s.playbackRate.value = rate * (0.95 + Math.random() * 0.1);
       const g = this.ac.createGain(); g.gain.value = v * vol;
@@ -2748,7 +2954,7 @@ function oni(g, X) {
   return g.spawn(e);
 }
 
-return { swarm, swarmGroup, darter, armor, sniper, rock, kani, oni };
+return { aimAt, shoot, mk, sync, sprite, offscreen, swarm, swarmGroup, darter, armor, sniper, rock, kani, oni };
 })();
 
 __M['./stageM1.js'] = (function () {
@@ -2901,15 +3107,464 @@ const stageM1 = {
 return { stageM1 };
 })();
 
+__M['./stageMagma.js'] = (function () {
+// マグマ星 (gives the HAMMER; its boss マグマドラゴン is weak to the DRILL).
+//   1 とうちゃく     space: the planet grows, flame sprites fly in LINES (one hit chains the whole line)
+//   2 ふき出すマグマ  on the ground: lava GEYSERS (a red glow and "!" first, then a pillar) + splitting slimes, flame bats
+//   3 ようがんガメ    armoured turtles (beam Lv2 / drill) between the geysers
+//   4 火山ガメ        mid-boss: break the two armoured volcano vents, then hit the shell (beam Lv3 unlocks here first time)
+//   5 岩の雨          burning rocks rain down, everything together, big clumps for the MEGA
+//   then WARNING and マグマドラゴン: a long dragon swimming over the lava; after its fire breath the mouth opens.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { U } = __M['./orig.js'];
+const { debug } = __M['./save.js'];
+const { freeImg, ready } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { aimAt, mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
+const waves = [];
+const at = (f, fn) => waves.push([f, fn]);
+const hint = (text) => (g) => g.kid.pop(text, 320, 400, '#fff', 'hint');
+const DOWN = U / 4;
+
+// ================================================================ enemies
+// ヒノコ: a line of flame sprites snaking down the same path (close together: one kill chains them all)
+function ember(x0, dir, delay, amp) {
+  const e = mk(50, x0, -60, { hp: 2, r: 15, gems: 1, delay, dir, amp, x0 });
+  e.update = (g, e) => {
+    e.t++;
+    const t = e.t - e.delay;
+    if (t < 0) { e.y = -80; sync(e); return; }
+    e.y = -50 + t * 2.1; e.x = e.x0 + Math.sin(t * 0.035) * e.amp * e.dir;
+    if (offscreen(e) && t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.fire, e.cx, e.cy - 14, { scale: 0.42, add: true, alpha: 0.5, rot: g.t * 0.1 }); ctx.restore();
+    sprite(ctx, e, RIG(g.t % 10 < 5 ? 'ember0' : 'ember1'), 0.62);
+  };
+  return e;
+}
+const emberLine = (x, dir = 1, n = 8, amp = 140) => (g, X) => { for (let i = 0; i < n; i++) g.spawn(ember(X(x), dir, i * 9, amp)); };
+
+// マグマスライム: slow, spits a lava blob; when broken it SPLITS into two small ones (they survive the first blast)
+function slime(x, y, small = false, vx = 0) {
+  const e = mk(51, x, y, { hp: small ? 2 : 10, r: small ? 14 : 24, gems: small ? 1 : 3, small, vx, vy: small ? -3 : 0, guard: small ? 24 : 0 });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.guard > 0) { e.guard--; e.hp = Math.max(e.hp, 1); }
+    if (e.small) { e.vy += 0.12; e.x += e.vx; e.y += Math.min(e.vy, 2.5); e.vx *= 0.98; } else { e.y += e.y < 120 ? 1.6 : 0.55; e.x += Math.sin(e.t * 0.03) * 0.5; }
+    if (!e.small && e.t % 150 === 90 && e.y > 30) { shoot(g, 1, 2.6, 4, e.x - 8, e.y); audio.se('enemyFire', 0.3); }
+    if (e.hp < 0 && !e.small && !e.split) { // split
+      e.split = true;
+      for (const s of [-1, 1]) g.spawn(slime(e.x + s * 16, e.y, true, s * 2.2));
+    }
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const w = 1 + Math.sin(e.t * 0.15) * 0.06;
+    if (e.guard > 0 && e.guard % 4 < 2) return;
+    draw(ctx, RIG(e.small ? 'slimeS' : 'slime'), e.cx, e.cy, { sx: 0.75 * w, sy: 0.75 / w });
+    if (e.flash) draw(ctx, RIG(e.small ? 'slimeS' : 'slime'), e.cx, e.cy, { sx: 0.75 * w, sy: 0.75 / w, add: true, alpha: 0.5 });
+  };
+  return e;
+}
+const slimes = (...xs) => (g, X) => xs.forEach((x, i) => g.spawn(slime(X(x), -50 - i * 30)));
+
+// ようがんガメ: ARMOURED (explosions bounce off: beam Lv2, the drill, MEGA)
+function turtle(x, stopY = 110) {
+  const e = mk(52, x, -80, { hp: 26, r: 36, gems: 8, armor: true, wasArmor: true, stopY });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.y < e.stopY) e.y += 1.4; else if (e.t > 560) e.y += 1.2;
+    e.x += Math.sin(e.t * 0.015) * 0.7;
+    if (e.t % 160 === 80 && e.y > 20) { shoot(g, 3, 2.8, 3, e.x - 8, e.y + 30); audio.se('enemyFire', 0.4); }
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    sprite(ctx, e, RIG('turtle'), 0.68, Math.sin(e.t * 0.04) * 0.04);
+    const k = (g.t * 3 + e.x) % 120; // a glint that says "hard"
+    if (k < 24) draw(ctx, SPR.sparkWhite, e.cx - 30 + k * 2.5, e.cy - 10, { scale: 0.5, add: true, alpha: 0.5 * (1 - Math.abs(k - 12) / 12) });
+  };
+  return e;
+}
+const turtles = (...xs) => (g, X) => xs.forEach((x, i) => g.spawn(turtle(X(x), 100 + (i % 2) * 40)));
+
+// ほのおコウモリ: swoops down in an arc across the screen, one aimed shot at the bottom of the arc
+function bat(x0, dir) {
+  const e = mk(53, x0, -40, { hp: 6, r: 22, gems: 3, dir, x0 });
+  e.update = (g, e) => {
+    e.t++;
+    e.x = e.x0 + e.dir * e.t * 3; e.y = -40 + Math.sin(Math.min(e.t, 200) / 200 * Math.PI) * 300 - Math.max(0, e.t - 200) * 3;
+    if (e.t === 100) shoot(g, 1, 3.4, 4, e.x - 8, e.y);
+    if (e.t > 40 && offscreen(e)) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => sprite(ctx, e, RIG(g.t % 12 < 6 ? 'bat0' : 'bat1'), 0.7, e.dir * (e.t < 100 ? 0.3 : -0.3));
+  return e;
+}
+const bats = (...pairs) => (g, X) => pairs.forEach(([x, d]) => g.spawn(bat(X(x), d)));
+
+// burning rock (岩の雨 / thrown by the volcano turtle): falls with gravity, big ones take a few hits
+function lavaRock(x, y, vx, vy, big = false, grav = 0.03) {
+  const e = mk(54, x, y, { hp: big ? 14 : 3, r: big ? 30 : 16, gems: big ? 4 : 1, vx, vy, grav, big2: big, spin: (Math.random() - 0.5) * 0.08 });
+  e.art = RIG('rock' + Math.floor(Math.random() * 4));
+  e.update = (g, e) => {
+    e.t++; e.vy = Math.min(e.vy + e.grav, 4.5); e.x += e.vx; e.y += e.vy; e.rot += e.spin;
+    if (e.t > 30 && offscreen(e)) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 1; i <= 3; i++) draw(ctx, SPR.fire, e.cx - e.vx * i * 5, e.cy - e.vy * i * 5, { scale: (e.big2 ? 0.7 : 0.4) * (1 - i * 0.2), add: true, alpha: 0.5, rot: g.t * 0.2 + i });
+    ctx.restore();
+    sprite(ctx, e, e.art, e.big2 ? 1.0 : 0.5, e.rot);
+    draw(ctx, SPR.fire, e.cx, e.cy, { scale: e.big2 ? 0.5 : 0.28, add: true, alpha: 0.35 });
+  };
+  return e;
+}
+const rockRain = (n, big = 0) => (g) => { for (let i = 0; i < n; i++) g.spawn(lavaRock(40 + Math.random() * 560, -60 - Math.random() * 300, (Math.random() - 0.5) * 1.2, 1.2 + Math.random(), i < big)); };
+
+// ================================================================ hazard: lava geysers (not enemies: can't be shot)
+// warn (red glow + "!") for 80 frames, then a pillar for 60 frames. Touching the pillar costs a heart.
+const WARN = 80, BURN = 60;
+function geyser(g, x) { (g.geysers = g.geysers || []).push({ x: Math.max(30, Math.min(610, x)), t: 0 }); }
+const geyserAtShip = (dx = 0) => (g) => geyser(g, g.px + dx);
+function updateGeysers(g) {
+  const p = g.p;
+  for (const s of g.geysers || []) {
+    s.t++;
+    if (s.t === WARN - 30) audio.lab('charge', 0.35, 0.6);
+    if (s.t === WARN) { audio.se('release2', 0.45); g.shakeMag = Math.max(g.shakeMag, 3); }
+    const on = s.t > WARN && s.t < WARN + BURN, top = 480 - Math.min(1, (s.t - WARN) / 8) * 500;
+    if (on && Math.abs(p.x - s.x) < 22 && p.y > top && p.inv <= 0 && p.alive && !debug.on && !g.noDamage) {
+      g.geyserHits = (g.geyserHits || 0) + 1; g.kid.hurtPlayer(); p.knock = 22; p.knockA = p.x < s.x ? Math.PI : 0;
+    }
+  }
+  if (g.geysers) g.geysers = g.geysers.filter((s) => s.t < WARN + BURN + 20);
+}
+function drawGeysers(ctx, g) {
+  for (const s of g.geysers || []) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    if (s.t <= WARN) { // warning: a growing red glow on the ground and a blinking "!"
+      const k = s.t / WARN;
+      draw(ctx, SPR.flareRed, s.x, 470, { scale: 0.3 + k * 0.5, add: true, alpha: 0.5 + k * 0.5 });
+      ctx.restore();
+      if (s.t % 16 < 10) { ctx.save(); ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = '#000'; ctx.strokeText('!', s.x, 440); ctx.fillStyle = '#ff4'; ctx.fillText('!', s.x, 440); ctx.restore(); }
+      continue;
+    }
+    const k = Math.min(1, (s.t - WARN) / 8), fade = Math.max(0, Math.min(1, (WARN + BURN + 20 - s.t) / 20)), top = 480 - k * 500;
+    ctx.globalAlpha = fade;
+    const gr = ctx.createLinearGradient(s.x - 34, 0, s.x + 34, 0); gr.addColorStop(0, 'rgba(255,60,0,0)'); gr.addColorStop(0.3, 'rgba(255,120,20,0.8)'); gr.addColorStop(0.5, 'rgba(255,250,200,1)'); gr.addColorStop(0.7, 'rgba(255,120,20,0.8)'); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(s.x - 34, top, 68, 480 - top);
+    for (let y = 480; y > top; y -= 40) draw(ctx, SPR.fire, s.x + Math.sin(y * 0.1 + g.t * 0.5) * 6, y, { scale: 0.75, add: true, rot: y + g.t * 0.3, alpha: fade });
+    ctx.restore();
+  }
+}
+
+// ================================================================ mid-boss: 火山ガメ (volcano turtle)
+// Two ARMOURED volcano vents on its shell keep it safe (shell takes 15%) -> break the vents (beam Lv2), then the shell.
+// The vents throw burning rocks (shoot them for gems); the head fires fans.
+function volcanoTurtle(g, X) {
+  const body = mk(55, X(288), -200, { hp: 100, r: 64, big: true, gems: 30, kit: true });
+  const vent = (side) => mk(56, 0, 0, { hp: 18, r: 26, armor: true, side, gems: 6, big: true, kit: side < 0 });
+  const vents = [vent(-1), vent(1)];
+  body.weak = () => (vents.some((c) => !c.gone) ? 0.15 : 1);
+  body.update = (g, e) => {
+    e.t++;
+    if (e.y < 130) e.y += 0.9;
+    e.x += Math.sin(e.t * 0.01) * 0.7; e.x = Math.max(170, Math.min(470, e.x));
+    const left = vents.filter((c) => !c.gone).length;
+    if (e.y >= 120 && !e.dying) {
+      if (e.t % (left ? 170 : 120) === 0) { shoot(g, 5, 2.6, 3, e.x - 8, e.y + 110); audio.se('enemyFire', 0.6); }
+      if (!left && e.t % 200 === 100) { shoot(g, 10, 2.2, 2, e.x - 8, e.y + 60, e.t * 50); }
+      if (e.t % 260 === 130) { g.kid.pop('マグマ スライムが 出てきた!', e.x, e.y + 150, '#fc6', 'small'); for (const s of [-1, 1]) g.spawn(slime(e.x + s * 120, e.y + 60)); }
+    }
+    if (e.t > 2400) e.y -= 3; // gives up
+    if (e.hp < 0 && !e.dying) e.dying = 1;
+    if (e.dying) {
+      e.dying++;
+      if (e.dying % 6 === 0) g.explosion(e.x + (Math.random() - 0.5) * 240, e.y + (Math.random() - 0.5) * 160, 'M', false);
+      if (e.dying % 12 === 0) audio.se('enemyDown', 0.8);
+      if (e.dying === 70) { e.lastHit = e.lastHit || 'shot'; g.killEnemy(e); audio.se('bossDown', 1); g.shakeMag = Math.max(g.shakeMag, 8); g.kid.shards(e.x, e.y, 40); g.kid.pop('やっつけた!!', e.x, e.y, 'rainbow', 'big'); g.midDone = true; g.onMidbossDown?.(); }
+    }
+    if (e.y < -340 && e.t > 2400) { e.dead = true; g.midDone = true; }
+    sync(e);
+  };
+  body.draw = (ctx, e, g) => {
+    const sh = e.dying ? (Math.random() - 0.5) * 6 : 0, bob = Math.sin(e.t * 0.05) * 4;
+    draw(ctx, RIG('vtHead'), e.cx + sh, e.cy + 112 + bob, { scale: 0.8 });
+    draw(ctx, RIG('vtShell'), e.cx + sh, e.cy, { scale: 0.8 });
+    if (e.flash) draw(ctx, RIG('vtShell'), e.cx + sh, e.cy, { scale: 0.8, add: true, alpha: 0.3 });
+    for (const c of vents) if (!c.gone) drawVent(ctx, c); // on top of the shell (they are spawned first, so drawn under it)
+    if (vents.some((c) => !c.gone) && !e.dying) { // heat barrier
+      ctx.save(); ctx.globalAlpha = 0.22 + Math.sin(e.t * 0.15) * 0.08; ctx.strokeStyle = '#fa4'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(e.cx, e.cy + 20, 160, 150, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 0.07; ctx.fillStyle = '#f84'; ctx.fill(); ctx.restore();
+    }
+  };
+  for (const c of vents) {
+    c.update = (g, c) => {
+      c.t++;
+      if (c.gone) { c.vy += 0.25; c.y += c.vy; c.x += c.side * 1.5; if (c.y > 600) c.dead = true; sync(c); return; }
+      c.x = body.x + c.side * 96; c.y = body.y - 10;
+      if (c.t % 200 === (c.side > 0 ? 40 : 140) && body.y > 110) { // eruption: burning rocks fly up and fall
+        audio.se('release2', 0.5); g.shakeMag = Math.max(g.shakeMag, 3);
+        for (let i = 0; i < 2; i++) g.spawn(lavaRock(c.x, c.y, c.side * (0.8 + i * 1.2), -3.5 - i * 0.4, false, 0.07));
+      }
+      if (c.hp < 0) {
+        c.gone = true; c.vy = -2; c.armor = false; c.hp = 999;
+        g.explosion(c.x, c.y, 'M'); audio.se('bossDown', 0.8); g.shakeMag = Math.max(g.shakeMag, 5);
+        g.kid.onKill(c, 0); g.kid.pop('火口を こわした!', c.x, c.y - 30, '#ff4', 'big');
+        if (vents.every((k) => k.gone)) g.kid.pop('バリアが 消えた! いまだ!', 320, 400, 'rainbow', 'big');
+      }
+      if (body.dead) c.dead = true;
+      sync(c);
+    };
+    c.draw = (ctx, c) => { if (c.gone) drawVent(ctx, c); };
+  }
+  function drawVent(ctx, c) {
+    const k = c.gone ? 0.5 : 1;
+    draw(ctx, RIG('vtVent'), c.cx, c.cy, { scale: 0.62 * k, rot: c.gone ? c.t * 0.1 : 0 });
+    if (c.flash) draw(ctx, RIG('vtVent'), c.cx, c.cy, { scale: 0.62 * k, add: true, alpha: 0.5 });
+    if (!c.gone) draw(ctx, SPR.fire, c.cx, c.cy - 10, { scale: 0.45 + Math.sin(c.t * 0.3) * 0.08, add: true, alpha: 0.7, rot: c.t * 0.1 });
+  }
+  vents.forEach((c) => g.spawn(c)); g.spawn(body); // vents first: a shot hits a vent before the shell behind it
+  return body;
+}
+
+// ================================================================ boss: マグマドラゴン
+// A long dragon swimming over the lava (the body is a trail of the head's positions). The head is the target.
+// Cycle: swim + 3-way fire -> rears up and glows ("なにか くる…!") -> fire breath (sweeping fans) -> MOUTH OPEN 2.8 s
+// (100% damage, MEGA x2) -> again. Below 2/3: geysers under the ship. Below 1/3: burning rock rain.
+const SEGS = 10, GAP = 8;
+function magmaDragon(g, X) {
+  const e = mk(42, X(320), -160, { hp: 320, r: 46, boss: true, gems: 60, bar: 0, phase: 1, cyc: 0, cs: 'enter', open: false, white: 0, jaw: 0, glow: 0 });
+  e.maxHp = 320; e.weakTo = g.stageDef.weak || null;
+  e.weak = (kind) => (e.open ? 1 : kind === 'mega' ? 1 : 0.3);
+  e.trail = []; for (let i = 0; i < SEGS * GAP + GAP; i++) e.trail.push([e.x, e.y - i * 4]);
+  const seg = (i) => e.trail[Math.min(e.trail.length - 1, (i + 1) * GAP)];
+  e.parts = () => (e.cs === 'dying' ? [] : Array.from({ length: SEGS }, (_, i) => { const [x, y] = seg(i); return { on: true, x, y, r: 22 - i }; }));
+  const ph = () => (e.hp > e.maxHp * 0.66 ? 1 : e.hp > e.maxHp * 0.33 ? 2 : 3);
+  let sw = 0; // swim clock (only runs while swimming, so the path is smooth)
+  e.update = (g, e) => {
+    e.t++; e.cyc++;
+    if (e.bar < 286) e.bar += 2;
+    const p = ph();
+    if (p !== e.phase && e.hp > 0) { e.phase = p; g.kid.pop(p === 2 ? 'おこった!' : 'げきおこ!!', e.x, e.y + 100, '#f44', 'big'); audio.se('warning', 0.5); g.shakeMag = Math.max(g.shakeMag, 4); }
+    const fast = e.phase === 3 ? 0.78 : 1;
+    const ox = e.x, oy = e.y;
+    switch (e.cs) {
+      case 'enter': e.y += 1.6; if (e.y >= 120) { e.cs = 'swim'; e.cyc = 0; } break;
+      case 'swim': {
+        sw++;
+        const tx = 320 + Math.sin(sw * 0.014) * 230, ty = 150 + Math.sin(sw * 0.029) * 70;
+        e.x += (tx - e.x) * 0.06; e.y += (ty - e.y) * 0.06;
+        if (e.cyc % Math.round(80 * fast) === 40) { shoot(g, 3, 3.0, 3, e.x - 8, e.y + 50); audio.se('enemyFire', 0.5); }
+        if (e.phase >= 2 && e.cyc % 230 === 120) { geyser(g, g.px); g.kid.pop('マグマが ふき出す!', g.px, 380, '#fa4', 'small'); }
+        if (e.phase === 3 && e.cyc % 170 === 85) for (let i = 0; i < 3; i++) g.spawn(lavaRock(60 + Math.random() * 520, -60 - i * 60, 0, 1.4, false));
+        if (e.cyc > 270 * fast) { e.cs = 'charge'; e.cyc = 0; audio.lab('charge', 0.7, 0.7); g.kid.pop('なにか くる…!', e.x, e.y + 110, '#fc6'); }
+        break;
+      }
+      case 'charge': // rears up to the top centre, the throat glows
+        e.x += (320 - e.x) * 0.05; e.y += (100 - e.y) * 0.05; e.glow = Math.min(1, e.cyc / 60); e.jaw = e.glow * 0.3;
+        if (e.cyc > 70 * fast) { e.cs = 'breath'; e.cyc = 0; audio.se('release2', 0.9); g.shakeMag = Math.max(g.shakeMag, 5); }
+        break;
+      case 'breath': { // sweeping fans of fire, left -> right
+        e.jaw = 0.6;
+        if (e.cyc % 14 === 0) { const sweep = Math.sin(e.cyc / 60 * Math.PI * 2) * 0x1400; shoot(g, e.phase === 3 ? 7 : 5, 2.7, 3, e.x - 8, e.y + 60, DOWN + sweep); audio.se('missiles', 0.4); }
+        if (e.cyc > 60) { e.cs = 'open'; e.cyc = 0; e.open = true; e.glow = 0; audio.lab('kira2', 0.7, 0.7); g.kid.pop('弱点が 開いた!', e.x, e.y + 130, 'rainbow', 'big'); }
+        break;
+      }
+      case 'open': // tired: the mouth hangs open, it sinks a little
+        e.jaw = 1; e.y += (150 - e.y) * 0.02;
+        if (e.cyc > 170) { e.cs = 'swim'; e.cyc = 0; e.open = false; e.jaw = 0; }
+        break;
+      case 'dying':
+        e.jaw = 1;
+        if (e.cyc % 7 === 0) { const [sx, sy] = seg(Math.floor(Math.random() * SEGS)); g.explosion(sx, sy, 'M', false); audio.se('enemyDown', 0.9); }
+        if (e.cyc % 9 === 0) g.explosion(e.x + (Math.random() - 0.5) * 120, e.y + (Math.random() - 0.5) * 120, 'M', false);
+        g.shakeMag = Math.max(g.shakeMag, 2);
+        e.white = Math.min(255, e.cyc * 3); g.white = e.white;
+        if (e.cyc === 90) { g.kid.onKill(e, 0); audio.se('bossDown', 1); audio.lab('explode2', 1, 0.6); g.kid.shards(e.x, e.y, 80); }
+        if (e.cyc > 160) { e.dead = true; g.boss = null; g.kills++; g.stageClear = true; g.white = 0; }
+        break;
+    }
+    if (e.hp < 0 && e.cs !== 'dying') {
+      e.cs = 'dying'; e.cyc = 0; e.open = false; g.battle = false; g.bossDead = true; g.geysers = [];
+      g.bullets.clear(); audio.stopBgm(); g.kid.pop('やったー!!', e.x, e.y + 120, 'rainbow', 'huge');
+    }
+    if (e.cs !== 'dying' && (Math.abs(e.x - ox) > 0.05 || Math.abs(e.y - oy) > 0.05 || e.cs === 'enter')) { e.trail.unshift([e.x, e.y]); e.trail.length = SEGS * GAP + GAP; }
+    e.head = Math.max(-0.5, Math.min(0.5, (e.x - ox) * 0.12));
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / 160) : 1;
+    ctx.save(); ctx.globalAlpha = alpha;
+    // tail first, then the rings toward the head
+    const [tx, ty] = e.trail[e.trail.length - 1], [px, py] = seg(SEGS - 1);
+    draw(ctx, RIG('mdTail'), tx, ty, { scale: 0.7, rot: Math.atan2(ty - py, tx - px) - Math.PI / 2 });
+    for (let i = SEGS - 1; i >= 0; i--) {
+      const [x, y] = seg(i), [nx, ny] = i ? seg(i - 1) : [e.x, e.y], s = 0.78 - i * 0.03;
+      draw(ctx, RIG('mdSeg'), x, y, { scale: s, rot: Math.atan2(ny - y, nx - x) + Math.PI / 2 });
+      if (e.flash && i < 3) draw(ctx, RIG('mdSeg'), x, y, { scale: s, rot: Math.atan2(ny - y, nx - x) + Math.PI / 2, add: true, alpha: 0.25 });
+    }
+    // jaw (drops when the mouth opens), throat glow, head
+    ctx.save(); ctx.translate(e.cx, e.cy); ctx.rotate(e.head);
+    draw(ctx, RIG('mdJaw'), 0, 50 + e.jaw * 34, { scale: 0.8 });
+    ctx.globalCompositeOperation = 'lighter';
+    if (e.glow > 0 || e.cs === 'breath') draw(ctx, SPR.fire, 0, 56, { scale: 0.4 + e.glow * 0.6, add: true, rot: g.t * 0.3 });
+    if (e.open) {
+      draw(ctx, SPR.flareWhite, 0, 62, { scale: 0.4 + Math.sin(e.t * 0.4) * 0.08, add: true });
+      ctx.strokeStyle = `hsl(${(g.t * 10) % 360},100%,60%)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 62, 40 + Math.sin(e.t * 0.3) * 6, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    draw(ctx, RIG('mdHead'), 0, -6, { scale: 0.8 });
+    if (e.flash) draw(ctx, RIG('mdHead'), 0, -6, { scale: 0.8, add: true, alpha: e.open ? 0.5 : 0.2 });
+    ctx.restore();
+    ctx.restore();
+  };
+  return g.spawn(e);
+}
+
+// ================================================================ the waves
+// ---- 1: arrival (space, the planet grows)
+at(60, hint('マグマ星に 着いた!'));
+at(150, emberLine(200, 1)); at(330, emberLine(440, -1));
+at(380, hint('火の玉は 一列で 来る! まとめて うて!'));
+at(520, emberLine(160, 1)); at(530, emberLine(480, -1));
+at(680, rockRain(4));
+// ---- 2: on the ground: geysers, slimes, bats
+at(840, hint('マグマが ふき出す! 「!」から にげろ!'));
+at(880, geyserAtShip()); at(1000, emberLine(320, 1, 10, 200)); at(1040, geyserAtShip());
+at(1150, slimes(200, 440)); at(1180, hint('スライムは われて ふえる!'));
+at(1300, geyserAtShip(-60)); at(1310, geyserAtShip(60)); at(1380, emberLine(140, 1)); at(1400, emberLine(500, -1));
+at(1500, bats([-40, 1])); at(1540, bats([680, -1])); at(1600, slimes(320)); at(1660, geyserAtShip());
+at(1720, bats([-40, 1], [680, -1])); at(1780, emberLine(320, -1, 10, 220));
+// ---- 3: armoured turtles
+at(1900, turtles(320)); at(1920, hint('かたい! ためて ビームで つらぬけ!'));
+at(2050, emberLine(160, 1)); at(2100, geyserAtShip());
+at(2200, turtles(140, 500)); at(2260, slimes(320)); at(2380, geyserAtShip()); at(2400, bats([-40, 1], [680, -1]));
+at(2520, turtles(320)); at(2540, emberLine(120, 1)); at(2560, emberLine(520, -1)); at(2680, rockRain(5, 1));
+// ---- 4: mid-boss (the clock waits until it is beaten or leaves)
+at(2840, (g) => g.kid.pop('でっかいのが くる!', 320, 300, '#f44', 'big'));
+at(2920, (g, X) => { g.mid = volcanoTurtle(g, X); g.midDone = false; });
+at(2930, hint('火口は かたい! ビームで こわせ!'));
+// ---- 5: rock rain + everything
+at(3060, rockRain(6, 1)); at(3080, hint('岩が ふってくる! うって こわせ!'));
+at(3200, emberLine(200, 1, 10)); at(3220, emberLine(440, -1, 10)); at(3300, rockRain(6, 2));
+at(3420, turtles(160, 480)); at(3450, geyserAtShip()); at(3560, slimes(240, 400));
+at(3700, rockRain(8, 2)); at(3760, bats([-40, 1], [680, -1])); at(3850, geyserAtShip(-50)); at(3860, geyserAtShip(50));
+at(3980, turtles(320)); at(4000, emberLine(100, 1, 12, 160)); at(4010, emberLine(540, -1, 12, 160));
+at(4150, slimes(160, 320, 480)); at(4200, (g) => { if (g.mega.ready) g.kid.pop('いまだ! メガバースト!', 320, 400, '#6ff', 'hint'); });
+at(4350, rockRain(10, 3)); at(4420, bats([-40, 1], [680, -1])); at(4500, emberLine(320, 1, 14, 240));
+at(4600, geyserAtShip()); at(4650, turtles(140, 500));
+// ---- boss
+at(4880, (g) => { audio.stopBgm(); g.kid.warning(); });
+at(5130, () => audio.playBgm('boss'));
+at(5140, (g, X) => { g.boss = magmaDragon(g, X); });
+at(5280, hint('火をはいた あとに 口が 開く! そこを ねらえ!'));
+at(5340, (g) => { if (g.stageDef.weak && g.charger.weapons.includes(g.stageDef.weak)) g.kid.pop('ドリルが よく きく!', 320, 430, '#ffd040', 'normal'); });
+
+const TABLE = new Map();
+for (const [f, fn] of waves) TABLE.set(f, [...(TABLE.get(f) || []), fn]);
+
+function table(g, f) {
+  updateGeysers(g);
+  if (g.mid && !g.midDone && f > 2930 && f < 3040) { g.frame--; return; }
+  if (g.lastTableF === f) return;
+  g.lastTableF = f;
+  if (f === 0) audio.playBgm(g.stageDef.bgm || 'magma');
+  const fns = TABLE.get(f);
+  if (!fns) return;
+  const cam = g.p.camX ?? -60, X = (x) => Math.fround(Math.fround(x) - cam);
+  for (const fn of fns) fn(g, X);
+}
+
+// ================================================================ background
+// space with the planet growing (0..760) -> entry flash -> the lava ground scrolling, ash clouds, rising embers;
+// the boss arena glows redder.
+const NEB = freeImg('bg/nebula.jpg'), STARS = freeImg('bg/stars.jpg');
+const ARRIVE = 760;
+function tileY(ctx, im, off, alpha = 1, add = false) {
+  if (!ready(im) || alpha <= 0) return;
+  const s = 640 / im.width * 0.75, w = im.width * s, h = im.height * s;
+  ctx.save(); ctx.globalAlpha = alpha; if (add) ctx.globalCompositeOperation = 'lighter';
+  const y0 = (off % h) - h;
+  for (let y = y0; y < 480; y += h) for (let x = 0; x < 640; x += w) ctx.drawImage(im, x, y, w + 1, h + 1);
+  ctx.restore();
+}
+function drawBg(ctx, g) {
+  ctx.fillStyle = '#0a0404'; ctx.fillRect(0, 0, 640, 480);
+  g.scrollY = (g.scrollY || 0) + (g.mega.active ? 0.2 : 1);
+  const f = g.frame, sy = g.scrollY;
+  if (f < ARRIVE + 60) { // space + planet
+    tileY(ctx, NEB, sy * 0.4, 1); tileY(ctx, STARS, sy * 1.6, 0.8, true);
+    ctx.fillStyle = 'rgba(80,10,0,0.25)'; ctx.fillRect(0, 0, 640, 480);
+    const k = Math.min(1, f / ARRIVE), s = 0.22 + k * k * k * 3.4;
+    draw(ctx, RIG('magmaPlanet'), 320, 150 + k * k * 380, { scale: s });
+  }
+  const ground = Math.max(0, Math.min(1, (f - ARRIVE + 40) / 100));
+  if (ground > 0) {
+    ctx.save(); ctx.globalAlpha = ground;
+    const im = RIG('lavaTile');
+    const y = (sy * 1.1) % 640;
+    draw(ctx, im, 320, y - 320); draw(ctx, im, 320, y + 320);
+    // the lava breathes
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = ground * (0.08 + Math.sin(g.t * 0.03) * 0.05); ctx.fillStyle = '#ff4000'; ctx.fillRect(0, 0, 640, 480);
+    ctx.restore();
+    // ash clouds drifting over
+    ctx.save(); ctx.globalAlpha = 0.35 * ground;
+    for (let i = 0; i < 4; i++) { const yy = ((sy * 1.8 + i * 260) % 1040) - 200; draw(ctx, SPR.smoke, (i * 211) % 640, yy, { scale: 4.5, rot: i }); }
+    ctx.restore();
+    // boss arena: darker and redder
+    if (f > 4880) { ctx.save(); ctx.globalAlpha = Math.min(0.35, (f - 4880) / 400); ctx.fillStyle = '#300000'; ctx.fillRect(0, 0, 640, 480); ctx.restore(); }
+  }
+  // entry: heat streaks and an orange flash
+  if (f > ARRIVE - 140 && f < ARRIVE + 80) {
+    const k = 1 - Math.abs(f - ARRIVE) / 140;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.max(0, k);
+    ctx.strokeStyle = '#ff8a30'; ctx.lineWidth = 3;
+    for (let i = 0; i < 16; i++) { const x = (i * 83 + g.t * 7) % 640, y = (i * 137 + g.t * 22) % 520 - 40; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 60); ctx.stroke(); }
+    ctx.fillStyle = `rgba(255,120,40,${Math.max(0, k) * 0.35})`; ctx.fillRect(0, 0, 640, 480);
+    ctx.restore();
+  }
+  // embers rising from the lava
+  if (ground > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 36; i++) {
+      const sp = 0.6 + (i % 4) * 0.35, y = 500 - ((g.t * sp + i * 71) % 560), x = (i * 97 + Math.sin(g.t * 0.02 + i) * 24) % 640;
+      draw(ctx, SPR.fire, x, y, { scale: 0.05 + (i % 3) * 0.03, add: true, alpha: ground * 0.8 });
+    }
+    ctx.restore();
+  }
+  drawGeysers(ctx, g);
+}
+
+// select-screen / intro portrait: the planet with the dragon's head in front
+function portrait(ctx, x, y, s, t) {
+  draw(ctx, RIG('mdHead'), x, y + Math.sin(t * 0.05) * 2, { scale: s * 0.75 });
+}
+
+const stageMagma = {
+  id: 'magma', table, drawBg, portrait, checkpoints: [0, 1880, 2830, 4870],
+  onContinue: (g) => { g.geysers = []; if (g.frame >= 2830) g.midDone = true; },
+};
+
+return { lavaRock, geyser, volcanoTurtle, magmaDragon, stageMagma };
+})();
+
 __M['./stages.js'] = (function () {
 // All stages: the tutorial, the four planets (any order, each gives a weapon) and the final stage.
-// The four planets are STAND-INS for now (the tutorial's waves with their own name / colour / music) until each
-// one is built in its own file.
+// マグマ星 is built (stageMagma.js). The other three are still STAND-INS (the tutorial's waves with their own name /
+// colour / music) until each one is built in its own file.
 const { stageM1 } = __M['./stageM1.js'];
+const { stageMagma } = __M['./stageMagma.js'];
 const standIn = (o) => ({ ...stageM1, ...o });
 const TUTORIAL = stageM1;
 const PLANETS = [
-  standIn({ id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0 }),
+  ({ ...stageMagma, id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0 }),
   standIn({ id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1 }),
   standIn({ id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2 }),
   standIn({ id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3 }),
@@ -3075,6 +3730,7 @@ class SelectScene {
     PLANETS.forEach((s, i) => {
       const [x, y] = SLOT[i], on = this.cur === i, done = progress.cleared[s.id];
       planet(ctx, x, y - 10, on ? 50 : 44, s.color, this.t + i * 50);
+      s.portrait?.(ctx, x, y - 10, on ? 0.62 : 0.55, this.t);
       if (on) { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.globalAlpha = 0.6 + Math.sin(this.t * 0.2) * 0.4; ctx.strokeRect(x - 92, y - 84, 184, 168); ctx.restore(); }
       text(ctx, s.name, x, y + 58, { size: 20, align: 'center', color: on ? '#fff' : '#bcd' });
       text(ctx, s.boss, x, y + 78, { size: 13, align: 'center', color: s.color });
@@ -3107,6 +3763,7 @@ class IntroScene {
     const s = this.stage, k = Math.min(1, this.t / 20);
     backdrop(ctx, this.t, 'rgba(0,0,0,0.5)');
     planet(ctx, 320, 200, 90, s.color || '#88f', this.t);
+    s.portrait?.(ctx, 320, 200, 1.1, this.t);
     ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 300, W, 110); ctx.fillStyle = s.color || '#fff'; ctx.fillRect(0, 300, W * k, 4); ctx.fillRect(W * (1 - k), 406, W * k, 4); ctx.restore();
     label(ctx, s.name, 320 - (1 - k) * 400, 348, 34, '#fff');
     if (s.boss) text(ctx, 'ボス: ' + s.boss, 320 + (1 - k) * 400, 390, { size: 22, align: 'center', color: s.color });
@@ -3316,7 +3973,8 @@ const { loadImages } = __M['./assets.js'];
 const { audio } = __M['./audio.js'];
 const { hasTouch, initInput, onAnyKey, pollInput, setTouchMode } = __M['./input.js'];
 const { debug, save, speed } = __M['./save.js'];
-const { BootScene, setRouter } = __M['./scenes.js'];
+const { BootScene, PlayScene, setRouter } = __M['./scenes.js'];
+const { stageById } = __M['./stages.js'];
 const { PracticeScene } = __M['./practice.js'];
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -3382,7 +4040,9 @@ loadImages((p) => { boot.textContent = `Loading... ${Math.round(p * 100)}%`; })
   .then(() => {
     boot.remove();
     // ?practice: straight into the charge-shot practice arena (with the tuning panel)
-    scene = new URLSearchParams(location.search).has('practice') ? new PracticeScene() : new BootScene();
+    const q = new URLSearchParams(location.search), st = q.get('stage') && stageById(q.get('stage'));
+    // ?stage=magma&at=2900: straight into a stage (at a frame) for testing
+    scene = q.has('practice') ? new PracticeScene() : st ? new PlayScene(st, { startFrame: +(q.get('at') || 0) }) : new BootScene();
     // debug hooks for testing in the console
     window.__haruou = { get scene() { return scene; }, set scene(s) { scene = s; } };
     requestAnimationFrame(frame);
