@@ -5786,10 +5786,10 @@ const { stageJunk } = __M['./stageJunk.js'];
 const { stageFinal } = __M['./stageFinal.js'];
 const TUTORIAL = stageM1;
 const PLANETS = [
-  ({ ...stageMagma, id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0 }),
-  ({ ...stageIce, id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1 }),
-  ({ ...stageThunder, id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2 }),
-  ({ ...stageJunk, id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3 }),
+  ({ ...stageMagma, id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0, planetKey: 'magmaPlanet' }),
+  ({ ...stageIce, id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1, planetKey: 'icePlanet' }),
+  ({ ...stageThunder, id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2, planetKey: 'thunderPlanet' }),
+  ({ ...stageJunk, id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3, planetKey: 'fortress' }),
 ];
 const FINAL = ({ ...stageFinal, id: 'final', name: 'マザー', boss: 'マザー', bgm: 'final', color: '#ff40a0' });
 const stageById = (id) => [TUTORIAL, ...PLANETS, FINAL].find((s) => s.id === id);
@@ -5815,6 +5815,8 @@ const { cancel, decide, hasTouch, isPressed, takeTap } = __M['./input.js'];
 const { debug } = __M['./save.js'];
 const { fmt, label } = __M['./mega.js'];
 const { freeImg, ready } = __M['./free.js'];
+const { SPR, draw } = __M['./assets.js'];
+const { RIG } = __M['./rig.js'];
 const { LV3_GOAL, LV3_TEXT, clearedCount, progress, resetProgress, saveProgress } = __M['./progress.js'];
 const { FINAL, PLANETS, TUTORIAL, WEAPON_INFO } = __M['./stages.js'];
 let go = () => { };
@@ -5890,9 +5892,24 @@ class TitleScene {
   }
   draw(ctx) {
     backdrop(ctx, this.t);
-    if (ready(SHIP)) { ctx.save(); ctx.translate(W / 2, 250 + Math.sin(this.t * 0.03) * 6); ctx.globalAlpha = 0.9; ctx.drawImage(SHIP, -76 * 0.6, -128 * 0.6, 152 * 0.6, 256 * 0.6); ctx.restore(); }
-    const k = Math.min(1, this.t / 30);
-    ctx.save(); ctx.globalAlpha = k; label(ctx, GAME_TITLE, W / 2, 120, 66, '#ff4'); text(ctx, 'ためて、ためて、ぶっぱなせ!', W / 2, 160, { size: 18, align: 'center', color: '#cff' }); ctx.restore();
+    // the four planets drifting in the distance
+    PLANETS.forEach((s, i) => planet(ctx, [70, 570, 110, 540][i], [110, 90, 400, 380][i] + Math.sin(this.t * 0.01 + i) * 6, [46, 38, 34, 42][i], s.color, this.t, s.planetKey));
+    sparkles(ctx, this.t, 30);
+    if (ready(SHIP)) { // the ship, engines burning
+      const sy = 250 + Math.sin(this.t * 0.03) * 6;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (const dx of [-24, 24]) { draw(ctx, SPR.sparkBlue, W / 2 + dx, sy + 84, { scale: 0.5 + Math.random() * 0.1, sy: 1.2, add: true }); draw(ctx, SPR.flareWhite, W / 2 + dx, sy + 74, { scale: 0.18, add: true }); }
+      draw(ctx, SPR.sparkBlue, W / 2, sy, { scale: 2.2, add: true, alpha: 0.18 });
+      ctx.restore();
+      ctx.save(); ctx.translate(W / 2, sy); ctx.drawImage(SHIP, -76 * 0.6, -128 * 0.6, 152 * 0.6, 256 * 0.6); ctx.restore();
+    }
+    const k = Math.min(1, this.t / 30), drop = (1 - k) * -60;
+    ctx.save(); ctx.globalAlpha = k;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareRed, W / 2, 100 + drop, { sx: 2.4, sy: 0.5, add: true, alpha: 0.35 }); ctx.restore(); // glow behind the logo
+    label(ctx, GAME_TITLE, W / 2, 120 + drop, 66, '#ff4');
+    const sw = (this.t * 9) % 900 - 130; // a shine sweeping over the logo
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, sw, 98 + drop, { sx: 0.3, sy: 0.9, add: true, alpha: 0.6 }); ctx.restore();
+    text(ctx, 'ためて、ためて、ぶっぱなせ!', W / 2, 160, { size: 18, align: 'center', color: '#cff' }); ctx.restore();
     menu(ctx, this.items, this.cur, W / 2, 300);
     if (this.confirm) {
       ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
@@ -5906,13 +5923,28 @@ class TitleScene {
 
 // ---------------------------------------------------------------- stage select: 4 planets + the sealed mother ship
 const SLOT = [[150, 150], [490, 150], [150, 360], [490, 360]];
-function planet(ctx, x, y, r, color, t) {
-  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
-  g.addColorStop(0, '#fff'); g.addColorStop(0.25, color); g.addColorStop(1, '#000');
-  ctx.save(); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.stroke();
+// a planet: its painted art when it has one (the same picture the stage flies down to), with a glowing atmosphere
+// and a thin orbit ring passing behind / in front of it
+function planet(ctx, x, y, r, color, t, key) {
+  const ring = (front) => { ctx.save(); ctx.beginPath(); ctx.rect(x - r * 2, front ? y : y - r * 2, r * 4, r * 2); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 1.55, r * 0.34, -0.3 + Math.sin(t * 0.01) * 0.05, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); };
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const ag = ctx.createRadialGradient(x, y, r * 0.85, x, y, r * 1.45); ag.addColorStop(0, color + '88'); ag.addColorStop(1, color + '00');
+  ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(x, y, r * 1.45, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ring(false);
+  const art = key && RIG(key);
+  if (art && art[3]) draw(ctx, art, x, y, { scale: r / 240, rot: Math.sin(t * 0.004) * 0.08 });
+  else {
+    const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
+    g.addColorStop(0, '#fff'); g.addColorStop(0.25, color); g.addColorStop(1, '#000');
+    ctx.save(); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  ring(true);
+}
+// twinkling, slowly turning sparkles (title / select)
+function sparkles(ctx, t, n = 24) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < n; i++) { const x = (i * 137 + t * 0.2 * (1 + i % 3)) % 660 - 10, y = (i * 89) % 480, k = 0.5 + 0.5 * Math.sin(t * 0.05 + i * 1.7); draw(ctx, SPR.sparkWhite, x, y, { scale: 0.08 + k * 0.1, add: true, alpha: k * 0.8, rot: t * 0.01 + i }); }
   ctx.restore();
-  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 1.5, r * 0.35, -0.3 + Math.sin(t * 0.01) * 0.05, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 }
 class SelectScene {
   constructor(cur = null) {
@@ -5945,17 +5977,23 @@ class SelectScene {
   }
   draw(ctx) {
     backdrop(ctx, this.t, 'rgba(0,0,20,0.35)');
+    sparkles(ctx, this.t);
     label(ctx, 'ステージ セレクト', W / 2, 44, 30, '#fff');
     text(ctx, '< もどる', 12, 28, { size: 14, color: '#9ab' });
-    // orbit lines to the mother ship
-    ctx.save(); ctx.strokeStyle = 'rgba(150,200,255,0.25)'; ctx.setLineDash([6, 8]); ctx.lineWidth = 2;
-    for (const [x, y] of SLOT) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(320, 255); ctx.stroke(); }
+    // energy flowing along the lines to the mother ship (brighter from the selected planet)
+    ctx.save(); ctx.lineWidth = 2; ctx.setLineDash([6, 10]); ctx.lineDashOffset = -this.t * 0.8;
+    SLOT.forEach(([x, y], i) => { ctx.strokeStyle = this.cur === i ? 'rgba(255,255,255,0.7)' : 'rgba(150,200,255,0.25)'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(320, 255); ctx.stroke(); });
     ctx.restore();
     PLANETS.forEach((s, i) => {
       const [x, y] = SLOT[i], on = this.cur === i, done = progress.cleared[s.id];
-      planet(ctx, x, y - 10, on ? 50 : 44, s.color, this.t + i * 50);
-      s.portrait?.(ctx, x, y - 10, on ? 0.62 : 0.55, this.t);
-      if (on) { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.globalAlpha = 0.6 + Math.sin(this.t * 0.2) * 0.4; ctx.strokeRect(x - 92, y - 84, 184, 168); ctx.restore(); }
+      if (on) { // a spotlight behind the selected planet + a turning ring of lights
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, x, y - 10, { scale: 1.1, add: true, alpha: 0.25 + Math.sin(this.t * 0.1) * 0.08, rot: this.t * 0.01 });
+        for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6 + this.t * 0.03; draw(ctx, SPR.sparkWhite, x + Math.cos(a) * 70, y - 10 + Math.sin(a) * 70, { scale: 0.12, add: true, alpha: 0.8 }); }
+        ctx.restore();
+      }
+      planet(ctx, x, y - 10, on ? 52 : 44, s.color, this.t + i * 50, s.planetKey);
+      s.portrait?.(ctx, x + 30, y + 8, on ? 0.48 : 0.4, this.t); // the boss peeks out in front of its planet
+      if (on) { ctx.save(); ctx.strokeStyle = s.color; ctx.lineWidth = 3; ctx.globalAlpha = 0.6 + Math.sin(this.t * 0.2) * 0.4; ctx.strokeRect(x - 92, y - 84, 184, 168); ctx.restore(); }
       text(ctx, s.name, x, y + 58, { size: 20, align: 'center', color: on ? '#fff' : '#bcd' });
       text(ctx, s.boss, x, y + 78, { size: 13, align: 'center', color: s.color });
       if (done) { // CLEAR stamp + the weapon won there
@@ -5986,7 +6024,7 @@ class IntroScene {
   draw(ctx) {
     const s = this.stage, k = Math.min(1, this.t / 20);
     backdrop(ctx, this.t, 'rgba(0,0,0,0.5)');
-    planet(ctx, 320, 200, 90, s.color || '#88f', this.t);
+    planet(ctx, 320, 200, 90, s.color || '#88f', this.t, s.planetKey);
     s.portrait?.(ctx, 320, 200, 1.1, this.t);
     ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 300, W, 110); ctx.fillStyle = s.color || '#fff'; ctx.fillRect(0, 300, W * k, 4); ctx.fillRect(W * (1 - k), 406, W * k, 4); ctx.restore();
     label(ctx, s.name, 320 - (1 - k) * 400, 348, 34, '#fff');
@@ -6141,7 +6179,7 @@ class EndingScene {
     const t = this.t;
     backdrop(ctx, t, 'rgba(0,0,20,0.3)');
     // the four planets drift past
-    PLANETS.forEach((s, i) => { const y = ((t * 0.5 + i * 260) % 1100) - 160; planet(ctx, i % 2 ? 540 : 100, y, 40, s.color, t); });
+    PLANETS.forEach((s, i) => { const y = ((t * 0.5 + i * 260) % 1100) - 160; planet(ctx, i % 2 ? 540 : 100, y, 40, s.color, t, s.planetKey); });
     if (ready(SHIP)) { ctx.save(); ctx.translate(W / 2 + Math.sin(t * 0.02) * 40, 380 + Math.sin(t * 0.03) * 8); ctx.drawImage(SHIP, -76 * 0.45, -128 * 0.45, 152 * 0.45, 256 * 0.45); ctx.restore(); }
     let y = 500 - t * 0.7;
     for (const [s, size = 20, color = '#fff'] of ENDING) { if (y > -40 && y < 520 && s) text(ctx, s, W / 2, y, { size, align: 'center', color }); y += size + 16; }
