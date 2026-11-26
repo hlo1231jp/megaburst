@@ -486,17 +486,196 @@ function buildMagmaArt(IMG) {
 return { buildMagmaArt };
 })();
 
+__M['./art_ice.js'] = (function () {
+// こおり星 art, drawn in code with the painting kit of rig.js:
+//   yuki0/1 ユキンコ (snow sprite), jelly アイスクラゲ, hermit こおりヤドカリ (armoured), icicle つらら, block 氷のかべ,
+//   mid-boss アイスバーグ (berg, bergGun), boss フロストビートル (fbBody, fbWing, fbCore, fbLeg), the planet and the ice ground.
+const { addArt, eye, leg, shade, trace } = __M['./rig.js'];
+const C = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const ICE = ['#8ad8ff', '#f0fcff', '#1a5a8a']; // base, light, dark
+// frosty facets: light streaks inside a shape
+function facets(x, path, lines, color = 'rgba(255,255,255,0.7)', w = 2) {
+  x.save(); trace(x, path); x.clip(); x.strokeStyle = color; x.lineWidth = w; x.lineCap = 'round';
+  for (const l of lines) { x.beginPath(); l.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.stroke(); }
+  x.restore();
+}
+const darkEye = (x, cx, cy, r) => {
+  x.fillStyle = '#0a1a2a'; x.beginPath(); x.ellipse(cx, cy, r * 0.8, r, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(cx - r * 0.25, cy - r * 0.35, r * 0.3, 0, Math.PI * 2); x.fill();
+};
+
+function yuki(f) { // fluffy snow ball with six ice spikes
+  const c = C(60, 60), x = c.getContext('2d'), r0 = f ? 0.26 : 0;
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + r0; shade(x, [[30 + Math.cos(a - 0.25) * 12, 30 + Math.sin(a - 0.25) * 12], [30 + Math.cos(a) * 28, 30 + Math.sin(a) * 28], [30 + Math.cos(a + 0.25) * 12, 30 + Math.sin(a + 0.25) * 12]], ...ICE, { gloss: false, lw: 1.5, outline: '#0a2a4a' }); }
+  shade(x, { ellipse: [30, 30, 15, 14] }, '#e8f6ff', '#ffffff', '#6a9ac0', { outline: '#0a2a4a' });
+  darkEye(x, 25, 32, 3); darkEye(x, 35, 32, 3);
+  return c;
+}
+function jelly() { // translucent ice jellyfish
+  const c = C(72, 90), x = c.getContext('2d');
+  x.save(); x.strokeStyle = 'rgba(160,230,255,0.8)'; x.lineWidth = 3; x.lineCap = 'round';
+  for (let i = 0; i < 5; i++) { const sx = 18 + i * 9; x.beginPath(); x.moveTo(sx, 40); x.bezierCurveTo(sx - 6, 56, sx + 6, 70, sx, 86); x.stroke(); }
+  x.restore();
+  x.save(); x.globalAlpha = 0.85;
+  shade(x, [[36, 4], [62, 16], [68, 38], [52, 46], [36, 42], [20, 46], [4, 38], [10, 16]], '#6ac8f0', '#f0fcff', '#1a4a7a', { outline: '#0a2a4a' });
+  x.restore();
+  const g = x.createRadialGradient(36, 26, 0, 36, 26, 14); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(1, 'rgba(120,220,255,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(36, 26, 14, 0, Math.PI * 2); x.fill();
+  eye(x, 28, 32, 4, '#40e0ff'); eye(x, 44, 32, 4, '#40e0ff');
+  return c;
+}
+function hermit() { // crab carrying a spiral ice shell: looks HARD
+  const c = C(120, 120), x = c.getContext('2d');
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) leg(x, 60 + s * 22, 70 + i * 8, 60 + s * (44 + i * 4), 66 + i * 12, 60 + s * 50, 92 + i * 8, 5, '#c05a40');
+  shade(x, { ellipse: [60, 96, 20, 14] }, '#d86a48', '#ffb898', '#4a1408');
+  eye(x, 52, 104, 4, '#40e0ff'); eye(x, 68, 104, 4, '#40e0ff');
+  const shell = [[60, 4], [96, 22], [106, 56], [90, 86], [60, 92], [30, 86], [14, 56], [24, 22]];
+  shade(x, shell, '#9ad8f0', '#ffffff', '#1a4a7a', { outline: '#0a2a4a', rim: 'rgba(255,255,255,0.8)', lw: 3 });
+  facets(x, shell, [[[60, 10], [60, 86]], [[24, 30], [96, 30]], [[18, 58], [102, 58]], [[34, 82], [86, 82]]], 'rgba(20,70,120,0.5)', 3);
+  facets(x, shell, [[[34, 18], [48, 40]], [[76, 18], [86, 40]]], 'rgba(255,255,255,0.9)', 4);
+  return c;
+}
+function icicle() { // falling icicle (point down)
+  const c = C(32, 90), x = c.getContext('2d');
+  const p = [[6, 4], [26, 4], [22, 30], [16, 86], [10, 30]];
+  shade(x, p, ...ICE, { outline: '#0a2a4a', lw: 2 });
+  facets(x, p, [[[12, 8], [15, 70]]]);
+  return c;
+}
+function block() { // a block of the ice wall
+  const c = C(72, 64), x = c.getContext('2d');
+  const p = [[6, 10], [66, 6], [68, 56], [8, 60]];
+  shade(x, p, '#a8e4ff', '#ffffff', '#2a6a9a', { outline: '#0a2a4a', rim: 'rgba(255,255,255,0.9)', gloss: true });
+  facets(x, p, [[[14, 18], [30, 14]], [[40, 44], [60, 30]], [[20, 50], [36, 36], [44, 40]]], 'rgba(255,255,255,0.8)', 3);
+  facets(x, p, [[[30, 6], [36, 30], [28, 60]]], 'rgba(30,90,140,0.4)', 2);
+  return c;
+}
+// ---- mid-boss アイスバーグ (a floating iceberg fortress)
+function berg() {
+  const c = C(340, 220), x = c.getContext('2d');
+  const p = [[170, 6], [240, 20], [300, 60], [334, 120], [300, 180], [220, 214], [120, 214], [40, 180], [6, 120], [40, 60], [100, 20]];
+  shade(x, p, '#9ad8f0', '#ffffff', '#163e6a', { outline: '#0a2a4a', rim: 'rgba(255,255,255,0.9)', lw: 5 });
+  facets(x, p, [[[170, 10], [150, 100], [170, 210]], [[60, 70], [150, 100], [290, 70]], [[30, 150], [150, 100], [310, 150]]], 'rgba(20,70,120,0.4)', 4);
+  facets(x, p, [[[90, 40], [120, 70]], [[220, 36], [250, 70]]], 'rgba(255,255,255,0.9)', 6);
+  // the monster frozen inside: a dark shape with glowing eyes
+  x.save(); trace(x, p); x.clip(); x.globalAlpha = 0.55; x.fillStyle = '#0a2440'; x.beginPath(); x.ellipse(170, 120, 70, 50, 0, 0, Math.PI * 2); x.fill(); x.restore();
+  eye(x, 145, 126, 9, '#40f0ff'); eye(x, 195, 126, 9, '#40f0ff');
+  return c;
+}
+function bergGun() { // armoured cannon turret of the iceberg
+  const c = C(90, 96), x = c.getContext('2d');
+  shade(x, [[34, 50], [56, 50], [54, 94], [36, 94]], '#5a6a80', '#d0e0f0', '#141c28', { gloss: false, lw: 2 }); // barrel (points down)
+  shade(x, [[45, 6], [78, 20], [84, 50], [66, 70], [24, 70], [6, 50], [12, 20]], '#7a8ca4', '#f0f8ff', '#1a2230', { rim: 'rgba(200,240,255,0.7)' });
+  x.fillStyle = '#d8e8f8'; for (const [a, b] of [[24, 30], [66, 30], [45, 18], [30, 54], [60, 54]]) { x.beginPath(); x.arc(a, b, 3, 0, Math.PI * 2); x.fill(); }
+  x.save(); x.shadowColor = '#4ef'; x.shadowBlur = 10; x.fillStyle = '#6ff'; x.beginPath(); x.arc(45, 42, 8, 0, Math.PI * 2); x.fill(); x.restore();
+  return c;
+}
+// ---- boss フロストビートル (faces down: the horn points at the ship)
+function fbBody() {
+  const c = C(200, 220), x = c.getContext('2d');
+  shade(x, [[100, 214], [88, 170], [92, 140], [108, 140], [112, 170]], '#e8f8ff', '#ffffff', '#4a7a9a', { lw: 3 }); // horn
+  shade(x, [[100, 120], [140, 132], [150, 160], [100, 180], [50, 160], [60, 132]], '#2a4a7a', '#8ab8e8', '#0a1a30', { lw: 4 }); // head
+  for (const s of [-1, 1]) shade(x, [[100 + s * 34, 150], [100 + s * 60, 176], [100 + s * 46, 184], [100 + s * 26, 166]], '#d8f0ff', '#ffffff', '#3a6a8a', { gloss: false, lw: 2 }); // mandibles
+  eye(x, 74, 148, 9, '#ff3050'); eye(x, 126, 148, 9, '#ff3050');
+  const tho = [[100, 50], [156, 62], [172, 100], [150, 130], [100, 138], [50, 130], [28, 100], [44, 62]];
+  shade(x, tho, '#3a6aa0', '#b8e0ff', '#0a1a30', { rim: 'rgba(200,240,255,0.8)', lw: 4 });
+  facets(x, tho, [[[60, 80], [80, 70]], [[120, 70], [140, 80]]], 'rgba(255,255,255,0.8)', 4);
+  return c;
+}
+function fbWing() { // one elytron (left), a thick ice shell
+  const c = C(120, 220), x = c.getContext('2d');
+  const p = [[110, 6], [114, 60], [110, 200], [80, 214], [30, 190], [8, 120], [20, 40], [60, 8]];
+  shade(x, p, '#3a8ad0', '#d8f4ff', '#0a2050', { outline: '#061a36', rim: 'rgba(220,250,255,0.9)', lw: 4 });
+  facets(x, p, [[[100, 20], [70, 110], [90, 200]], [[20, 70], [70, 110], [30, 170]]], 'rgba(20,70,120,0.4)', 3);
+  facets(x, p, [[[40, 30], [60, 70]], [[30, 120], [40, 150]]], 'rgba(255,255,255,0.9)', 6);
+  facets(x, p, [[[112, 6], [112, 210]]], 'rgba(6,26,54,0.9)', 5); // the seam where the two shells meet
+  return c;
+}
+function fbCore() { // the soft glowing abdomen under the shell (the weak point)
+  const c = C(140, 170), x = c.getContext('2d');
+  const p = [[70, 6], [118, 30], [130, 90], [110, 150], [70, 166], [30, 150], [10, 90], [22, 30]];
+  shade(x, p, '#3a2a6a', '#c0a0ff', '#100828', { lw: 3 });
+  x.save(); trace(x, p); x.clip(); x.strokeStyle = 'rgba(10,6,30,0.8)'; x.lineWidth = 3;
+  for (let i = 1; i < 6; i++) { x.beginPath(); x.moveTo(10, i * 28); x.quadraticCurveTo(70, i * 28 + 12, 130, i * 28); x.stroke(); }
+  x.restore();
+  return c;
+}
+function fbLeg() {
+  const c = C(120, 40), x = c.getContext('2d');
+  leg(x, 6, 20, 60, 6, 114, 30, 9, '#2a4a7a');
+  return c;
+}
+// ---- the planet
+function iceTile() { // 640 x 640: snow field, blue ice sheets, cracks and crevasses
+  const c = C(640, 640), x = c.getContext('2d');
+  x.fillStyle = '#b8d4e8'; x.fillRect(0, 0, 640, 640);
+  let s = 11; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 160; i++) { // snow drifts
+    const px = rnd() * 640, py = rnd() * 640, r = 20 + rnd() * 60, l = 78 + rnd() * 16;
+    const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r); g.addColorStop(0, `hsl(205,40%,${l}%)`); g.addColorStop(1, 'rgba(160,190,215,0)');
+    x.fillStyle = g; for (const oy of [-640, 0, 640]) { x.beginPath(); x.arc(px, py + oy, r, 0, Math.PI * 2); x.fill(); }
+  }
+  const sheet = (pts) => { // glassy blue ice
+    for (const oy of [-640, 0, 640]) {
+      x.save(); x.translate(0, oy); x.beginPath(); pts.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.closePath();
+      const g = x.createLinearGradient(0, 0, 640, 640); g.addColorStop(0, '#5aa8e0'); g.addColorStop(1, '#2a6aa8');
+      x.fillStyle = g; x.fill(); x.strokeStyle = 'rgba(255,255,255,0.8)'; x.lineWidth = 3; x.stroke(); x.restore();
+    }
+  };
+  sheet([[60, 40], [220, 20], [260, 160], [120, 220], [30, 150]]);
+  sheet([[400, 300], [600, 280], [620, 470], [470, 520], [380, 420]]);
+  sheet([[120, 420], [260, 400], [280, 560], [140, 600]]);
+  const crack = (pts, w) => {
+    for (const oy of [-640, 0, 640]) {
+      x.save(); x.translate(0, oy); x.lineCap = 'round'; x.lineJoin = 'round';
+      x.strokeStyle = '#1a3a5a'; x.lineWidth = w; x.beginPath(); pts.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.stroke();
+      x.strokeStyle = 'rgba(120,200,255,0.6)'; x.lineWidth = w * 0.3; x.stroke(); x.restore();
+    }
+  };
+  crack([[300, -10], [330, 120], [300, 240], [350, 380], [320, 650]], 10);
+  crack([[0, 300], [120, 320], [200, 280]], 4); crack([[640, 140], [520, 180], [470, 120]], 4); crack([[350, 380], [440, 430]], 3);
+  return c;
+}
+function planet() { // the ice planet seen from space
+  const c = C(512, 512), x = c.getContext('2d'), m = 256, R = 240;
+  x.save(); x.beginPath(); x.arc(m, m, R, 0, Math.PI * 2); x.clip();
+  const g = x.createRadialGradient(m - 80, m - 80, 10, m, m, R); g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#9ad8f8'); g.addColorStop(1, '#1a4a8a');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+  let s = 5; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  x.strokeStyle = 'rgba(30,80,140,0.45)'; x.lineCap = 'round';
+  for (let i = 0; i < 18; i++) { x.lineWidth = 2 + rnd() * 4; x.beginPath(); let px = rnd() * 512, py = rnd() * 512; x.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (rnd() - 0.5) * 140; py += (rnd() - 0.5) * 140; x.lineTo(px, py); } x.stroke(); }
+  x.fillStyle = 'rgba(255,255,255,0.35)'; for (let i = 0; i < 6; i++) { x.beginPath(); x.ellipse(rnd() * 512, rnd() * 512, 60 + rnd() * 80, 12 + rnd() * 14, -0.3, 0, Math.PI * 2); x.fill(); } // clouds
+  const sh = x.createRadialGradient(m - 110, m - 110, 100, m, m, 290); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,10,40,0.55)');
+  x.fillStyle = sh; x.fillRect(0, 0, 512, 512);
+  x.restore();
+  x.save(); x.shadowColor = '#9cf'; x.shadowBlur = 30; x.strokeStyle = 'rgba(200,240,255,0.8)'; x.lineWidth = 5; x.beginPath(); x.arc(m, m, R + 2, 0, Math.PI * 2); x.stroke(); x.restore();
+  return c;
+}
+
+function buildIceArt(IMG) {
+  if (typeof document === 'undefined') return;
+  const A = (n, c) => addArt(IMG, n, c);
+  A('yuki0', yuki(0)); A('yuki1', yuki(1)); A('jelly', jelly()); A('hermit', hermit()); A('icicle', icicle()); A('iceBlock', block());
+  A('berg', berg()); A('bergGun', bergGun());
+  A('fbBody', fbBody()); A('fbWing', fbWing()); A('fbCore', fbCore()); A('fbLeg', fbLeg());
+  A('iceTile', iceTile()); A('icePlanet', planet());
+}
+
+return { buildIceArt };
+})();
+
 __M['./assets.js'] = (function () {
 // Images: no material of the original game is used any more. Every sprite below is built in gfx.js from CC0
 // textures (Kenney Particle Pack) or drawn in code; ships / backgrounds are loaded through free.js.
 const { loadFx } = __M['./gfx.js'];
 const { buildRig } = __M['./rig.js'];
 const { buildMagmaArt } = __M['./art_magma.js'];
+const { buildIceArt } = __M['./art_ice.js'];
 const IMG = {};
 // the single-file build (build.mjs) embeds every asset as a data: URL in globalThis.__ASSETS
 const assetUrl = (path) => (globalThis.__ASSETS && globalThis.__ASSETS[path]) || path;
 
-const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); };
+const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); buildIceArt(IMG); };
 
 // [image key, sx, sy, sw, sh]
 const fx = (key, w, h = w) => [key, 0, 0, w, h];
@@ -3555,17 +3734,410 @@ const stageMagma = {
 return { lavaRock, geyser, volcanoTurtle, magmaDragon, stageMagma };
 })();
 
+__M['./stageIce.js'] = (function () {
+// こおり星 (gives the ICE; its boss フロストビートル is weak to the HAMMER).
+//   1 とうちゃく   space: the white planet grows, snow sprites gather into clumps (chain bait)
+//   2 氷のかべ     rows of ice blocks come down: they stop your shots AND the enemy's. Blocks are brittle against
+//                  explosions (one charged shot breaks a whole row by chain) and the hammer smashes them (x3).
+//                  Icicles shake at the top, then drop. Jellyfish float behind the walls and fire slow rings.
+//   3 ふぶき       a blizzard pushes the ship sideways (arrows show the wind) + armoured hermit crabs
+//   4 アイスバーグ  mid-boss: a floating iceberg; break its two armoured cannons, then the ice (beam Lv3 unlocks first time)
+//   5 そうりょくせん everything together
+//   then WARNING and フロストビートル: after its horn charge (a lane lights up first) it opens its shell = weak point.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { U } = __M['./orig.js'];
+const { freeImg, ready } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
+const waves = [];
+const at = (f, fn) => waves.push([f, fn]);
+const hint = (text) => (g) => g.kid.pop(text, 320, 400, '#fff', 'hint');
+const DOWN = U / 4;
+
+// ================================================================ enemies
+// ユキンコ: fly in, GATHER into a clump, wiggle, then dive (one hit chains the clump)
+function yuki(x, y, gx, gy, delay) {
+  const e = mk(60, x, y, { hp: 3, r: 15, gems: 1, gx, gy, delay });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.t < e.delay) { e.y = -80; sync(e); return; }
+    const t = e.t - e.delay;
+    if (t < 70) { e.x += (e.gx - e.x) * 0.06; e.y += (e.gy - e.y) * 0.06; }
+    else if (t < 200) { e.x += Math.sin((t + e.delay * 7) * 0.15) * 0.8; e.y += Math.cos((t + e.delay * 5) * 0.12) * 0.6; }
+    else { if (!e.vx) { const a = Math.atan2(g.py - e.y, g.px - e.x); e.vx = Math.cos(a) * 3; e.vy = Math.max(1.5, Math.sin(a) * 3); } e.x += e.vx; e.y += e.vy; }
+    e.rot += 0.04;
+    if (offscreen(e) && t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => sprite(ctx, e, RIG(g.t % 20 < 10 ? 'yuki0' : 'yuki1'), 0.62, e.rot * 0.3);
+  return e;
+}
+const clump = (x, gx, gy, n = 9) => (g, X) => {
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, rr = 22 + (i % 3) * 14; g.spawn(yuki(X(x) + (i - n / 2) * 16, -60 - i * 10, X(gx) + Math.cos(a) * rr, gy + Math.sin(a) * rr * 0.7, i * 5)); }
+};
+
+// アイスクラゲ: floats down slowly, fires a slow ring now and then
+function jelly(x, stopY = 140) {
+  const e = mk(61, x, -60, { hp: 9, r: 24, gems: 4, stopY });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.y < e.stopY) e.y += 1.2; else if (e.t > 600) e.y += 1.5;
+    e.x += Math.sin(e.t * 0.03) * 0.6;
+    if (e.t % 170 === 100 && e.y > 30) { shoot(g, 6, 1.8, 2, e.x - 8, e.y, e.t * 300); audio.se('enemyFire', 0.3); }
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => { const b = 1 + Math.sin(e.t * 0.12) * 0.07; draw(ctx, RIG('jelly'), e.cx, e.cy, { sx: 0.7 * b, sy: 0.7 / b }); if (e.flash) draw(ctx, RIG('jelly'), e.cx, e.cy, { sx: 0.7 * b, sy: 0.7 / b, add: true, alpha: 0.5 }); };
+  return e;
+}
+const jellies = (...xs) => (g, X) => xs.forEach((x, i) => g.spawn(jelly(X(x), 110 + (i % 2) * 50)));
+
+// こおりヤドカリ: ARMOURED (beam Lv2 / drill / hammer slam / MEGA)
+function hermit(x, stopY = 110) {
+  const e = mk(62, x, -80, { hp: 24, r: 34, gems: 8, armor: true, wasArmor: true, stopY });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.y < e.stopY) e.y += 1.4; else if (e.t > 560) e.y += 1.2;
+    e.x += Math.sin(e.t * 0.02) * 0.8;
+    if (e.t % 150 === 75 && e.y > 20) { shoot(g, 3, 2.8, 3, e.x - 8, e.y + 34); audio.se('enemyFire', 0.4); }
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    sprite(ctx, e, RIG('hermit'), 0.66, Math.sin(e.t * 0.05) * 0.05);
+    const k = (g.t * 3 + e.x) % 120;
+    if (k < 24) draw(ctx, SPR.sparkWhite, e.cx - 30 + k * 2.5, e.cy - 14, { scale: 0.5, add: true, alpha: 0.6 * (1 - Math.abs(k - 12) / 12) });
+  };
+  return e;
+}
+const hermits = (...xs) => (g, X) => xs.forEach((x, i) => g.spawn(hermit(X(x), 100 + (i % 2) * 40)));
+
+// つらら: hangs at the top shaking for 50 frames (you can see where), then drops fast
+function icicle(x) {
+  const e = mk(63, x, -20, { hp: 2, r: 14, gems: 1 });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.t < 50) e.y = -10 + Math.min(1, e.t / 12) * 30; else e.y += Math.min(9, (e.t - 50) * 0.5);
+    if (e.t === 50) audio.se('clang', 0.4);
+    if (e.t > 60 && offscreen(e)) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => {
+    const sh = e.t < 50 ? Math.sin(e.t * 1.7) * 2 : 0;
+    sprite(ctx, { ...e, cx: e.cx + sh }, RIG('icicle'), 0.7);
+    if (e.t < 50 && e.t % 10 < 5) { ctx.save(); ctx.strokeStyle = 'rgba(160,230,255,0.35)'; ctx.setLineDash([6, 10]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(e.cx, e.cy + 30); ctx.lineTo(e.cx, 480); ctx.stroke(); ctx.restore(); }
+  };
+  return e;
+}
+const icicles = (n, overShip = false) => (g) => { for (let i = 0; i < n; i++) g.spawn(icicle(overShip && i === 0 ? g.px : 40 + Math.random() * 560)); };
+
+// 氷のかべ: a row of blocks with a gap. Harmless to touch; stops shots both ways. Brittle: chain blasts break it,
+// the hammer smashes it (x3).
+function block(x, y, vy) {
+  const e = mk(64, x, y, { hp: 4, r: 30, gems: 1, vy, dmg: { body: 0 } });
+  e.weak = (kind) => (kind === 'hammer' || kind === 'bighammer' ? 3 : 1);
+  e.update = (g, e) => {
+    e.t++; e.y += e.vy;
+    for (const b of g.bullets.pool) if (Math.abs(b.cx - e.x) < 32 && Math.abs(b.cy - e.y) < 28) g.bullets.pool.free(b); // stops enemy bullets too
+    if (e.y > 560) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => sprite(ctx, e, RIG('iceBlock'), 0.9);
+  return e;
+}
+const wall = (gapX, vy = 0.8, y = -40) => (g, X) => {
+  for (let x = 36; x < 640; x += 64) if (Math.abs(x - X(gapX)) > 70) g.spawn(block(x, y, vy));
+};
+
+// ================================================================ hazard: blizzard (pushes the ship sideways)
+const blizzard = (dir, len = 300) => (g) => { g.wind = { dir, end: g.t + len }; g.kid.pop(dir > 0 ? 'ふぶきだ! → に 流される!' : 'ふぶきだ! ← に 流される!', 320, 380, '#bff', 'big'); audio.lab('aura2', 0.5, 0.6); };
+function updateWind(g) {
+  const w = g.wind, on = w && g.t < w.end, target = on ? w.dir * 1.1 : 0;
+  g.windNow = (g.windNow || 0) + (target - (g.windNow || 0)) * 0.03;
+  const p = g.p;
+  if (Math.abs(g.windNow) > 0.02 && p.alive && !g.stageClear) p.x = Math.max(16, Math.min(624, p.x + g.windNow));
+}
+
+// ================================================================ mid-boss: アイスバーグ (floating iceberg fortress)
+function iceberg(g, X) {
+  const body = mk(65, X(320), -200, { hp: 110, r: 70, big: true, gems: 30, kit: true });
+  const gun = (side) => mk(66, 0, 0, { hp: 18, r: 24, armor: true, side, gems: 6, big: true, kit: side < 0 });
+  const guns = [gun(-1), gun(1)];
+  body.weak = () => (guns.some((c) => !c.gone) ? 0.15 : 1);
+  body.update = (g, e) => {
+    e.t++;
+    if (e.y < 120) e.y += 0.9;
+    e.x += Math.sin(e.t * 0.012) * 0.8; e.x = Math.max(180, Math.min(460, e.x));
+    const left = guns.filter((c) => !c.gone).length;
+    if (e.y >= 110 && !e.dying) {
+      if (e.t % 240 === 120) { g.kid.pop('ユキンコが 出てきた!', e.x, e.y + 120, '#cef', 'small'); clump(e.x, e.x + (Math.random() - 0.5) * 240, 280, 7)(g, (x) => x); }
+      if (!left && e.t % 140 === 70) shoot(g, 8, 2.2, 2, e.x - 8, e.y + 40, e.t * 70);
+      if (e.t % 300 === 200) icicles(3, true)(g);
+    }
+    if (e.t > 2400) e.y -= 3;
+    if (e.hp < 0 && !e.dying) e.dying = 1;
+    if (e.dying) {
+      e.dying++;
+      if (e.dying % 6 === 0) { g.explosion(e.x + (Math.random() - 0.5) * 260, e.y + (Math.random() - 0.5) * 160, 'M', false); g.kid.shards(e.x + (Math.random() - 0.5) * 200, e.y, 6); }
+      if (e.dying % 12 === 0) audio.se('enemyDown', 0.8);
+      if (e.dying === 70) { e.lastHit = e.lastHit || 'shot'; g.killEnemy(e); audio.se('bossDown', 1); audio.lab('kira2', 0.8, 0.8); g.shakeMag = Math.max(g.shakeMag, 8); g.kid.shards(e.x, e.y, 50); g.kid.pop('やっつけた!!', e.x, e.y, 'rainbow', 'big'); g.midDone = true; g.onMidbossDown?.(); }
+    }
+    if (e.y < -340 && e.t > 2400) { e.dead = true; g.midDone = true; }
+    sync(e);
+  };
+  body.draw = (ctx, e) => {
+    const sh = e.dying ? (Math.random() - 0.5) * 6 : 0;
+    draw(ctx, RIG('berg'), e.cx + sh, e.cy, { scale: 0.85 });
+    if (e.flash) draw(ctx, RIG('berg'), e.cx + sh, e.cy, { scale: 0.85, add: true, alpha: 0.3 });
+    for (const c of guns) if (!c.gone) drawGun(ctx, c);
+    if (guns.some((c) => !c.gone) && !e.dying) {
+      ctx.save(); ctx.globalAlpha = 0.22 + Math.sin(e.t * 0.15) * 0.08; ctx.strokeStyle = '#aef'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(e.cx, e.cy, 170, 120, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 0.07; ctx.fillStyle = '#aef'; ctx.fill(); ctx.restore();
+    }
+  };
+  for (const c of guns) {
+    c.update = (g, c) => {
+      c.t++;
+      if (c.gone) { c.vy += 0.25; c.y += c.vy; c.x += c.side * 1.5; if (c.y > 600) c.dead = true; sync(c); return; }
+      c.x = body.x + c.side * 110; c.y = body.y + 40;
+      if (c.t % 150 === (c.side > 0 ? 0 : 75) && body.y > 100) { shoot(g, 3, 3.0, 3, c.x - 8, c.y + 30); audio.se('enemyFire', 0.5); }
+      if (c.hp < 0) {
+        c.gone = true; c.vy = -2; c.armor = false; c.hp = 999;
+        g.explosion(c.x, c.y, 'M'); audio.se('bossDown', 0.8); g.shakeMag = Math.max(g.shakeMag, 5);
+        g.kid.onKill(c, 0); g.kid.pop('ほうだいを こわした!', c.x, c.y - 30, '#ff4', 'big');
+        if (guns.every((k) => k.gone)) g.kid.pop('バリアが 消えた! いまだ!', 320, 400, 'rainbow', 'big');
+      }
+      if (body.dead) c.dead = true;
+      sync(c);
+    };
+    c.draw = (ctx, c) => { if (c.gone) drawGun(ctx, c); };
+  }
+  function drawGun(ctx, c) {
+    draw(ctx, RIG('bergGun'), c.cx, c.cy, { scale: 0.7, rot: c.gone ? c.t * 0.1 : Math.sin(c.t * 0.03) * 0.2 });
+    if (c.flash) draw(ctx, RIG('bergGun'), c.cx, c.cy, { scale: 0.7, add: true, alpha: 0.5 });
+  }
+  guns.forEach((c) => g.spawn(c)); g.spawn(body);
+  return body;
+}
+
+// ================================================================ boss: フロストビートル
+// Cycle: hover + ice fans (shell CLOSED, 30%) -> lines up with the ship, the lane lights up ("つのが くる!") ->
+// HORN CHARGE down the lane and back -> the shell OPENS (wings apart, the soft belly glows) for 2.8 s -> again.
+// Below 2/3: icicles over the ship. Below 1/3: blizzard while hovering.
+function frostBeetle(g, X) {
+  const e = mk(43, X(320), -200, { hp: 300, r: 62, boss: true, gems: 60, bar: 0, phase: 1, cyc: 0, cs: 'enter', open: 0, white: 0, homeY: 120, lane: 0 });
+  e.maxHp = 300; e.weakTo = g.stageDef.weak || null;
+  e.weak = (kind) => (e.open > 0.5 ? 1 : kind === 'mega' ? 1 : 0.3);
+  const ph = () => (e.hp > e.maxHp * 0.66 ? 1 : e.hp > e.maxHp * 0.33 ? 2 : 3);
+  e.update = (g, e) => {
+    e.t++; e.cyc++;
+    if (e.bar < 286) e.bar += 2;
+    const p = ph();
+    if (p !== e.phase && e.hp > 0) { e.phase = p; g.kid.pop(p === 2 ? 'おこった!' : 'げきおこ!!', e.x, e.y + 110, '#f44', 'big'); audio.se('warning', 0.5); g.shakeMag = Math.max(g.shakeMag, 4); }
+    const fast = e.phase === 3 ? 0.78 : 1;
+    const wantOpen = e.cs === 'open' || e.cs === 'dying';
+    e.open += ((wantOpen ? 1 : 0) - e.open) * 0.15;
+    switch (e.cs) {
+      case 'enter': e.y += 1.5; if (e.y >= e.homeY) { e.cs = 'hover'; e.cyc = 0; } break;
+      case 'hover':
+        e.x += Math.sin(e.t * 0.02) * 1.5 + (g.px - e.x) * 0.006; e.y += (e.homeY - e.y) * 0.05;
+        if (e.cyc % Math.round(75 * fast) === 30) { shoot(g, e.phase === 3 ? 5 : 3, 3.0, 3, e.x - 8, e.y + 90); audio.se('enemyFire', 0.5); }
+        if (e.phase >= 2 && e.cyc % 200 === 100) icicles(2, true)(g);
+        if (e.phase === 3 && e.cyc === 40) blizzard(Math.random() < 0.5 ? 1 : -1, 220)(g);
+        if (e.cyc > 250 * fast) { e.cs = 'aim'; e.cyc = 0; audio.lab('charge', 0.7, 0.9); g.kid.pop('つのが くる! よこに よけろ!', 320, 300, '#fc6', 'big'); }
+        break;
+      case 'aim': // follows the ship's x for a while, then locks the lane
+        if (e.cyc < 45) e.x += (g.px - e.x) * 0.08;
+        e.lane = e.x; e.y += (e.homeY - 20 - e.y) * 0.1;
+        if (e.cyc > 75 * fast) { e.cs = 'dash'; e.cyc = 0; audio.se('release2', 0.9); g.shakeMag = Math.max(g.shakeMag, 5); }
+        break;
+      case 'dash': // horn charge down the lane, crashes into the ground (ice shards fly)
+        e.y += 12;
+        if (e.y > 390) { e.y = 390; e.cs = 'crash'; e.cyc = 0; audio.se('hit', 1); g.shakeMag = Math.max(g.shakeMag, 10); g.kid.shards(e.x, e.y + 60, 20); shoot(g, e.phase === 3 ? 10 : 8, 2.2, 2, e.x - 8, e.y + 40, 0); }
+        break;
+      case 'crash': // stuck in the ice for a moment, then flies back up and opens
+        if (e.cyc > 30) e.y += (e.homeY - e.y) * 0.08;
+        if (e.cyc > 70) { e.cs = 'open'; e.cyc = 0; audio.lab('kira2', 0.7, 0.7); g.kid.pop('弱点が 開いた!', e.x, e.y + 130, 'rainbow', 'big'); }
+        break;
+      case 'open':
+        e.y += (e.homeY - e.y) * 0.05;
+        if (e.cyc > 170) { e.cs = 'hover'; e.cyc = 0; }
+        break;
+      case 'dying':
+        if (e.cyc % 8 === 0) { g.explosion(e.x + (Math.random() - 0.5) * 200, e.y + (Math.random() - 0.5) * 200, 'M', false); audio.se('enemyDown', 0.9); g.kid.shards(e.x, e.y, 6); }
+        g.shakeMag = Math.max(g.shakeMag, 2);
+        e.white = Math.min(255, e.cyc * 3); g.white = e.white;
+        if (e.cyc === 90) { g.kid.onKill(e, 0); audio.se('bossDown', 1); audio.lab('explode2', 1, 0.7); g.kid.shards(e.x, e.y, 80); }
+        if (e.cyc > 160) { e.dead = true; g.boss = null; g.kills++; g.stageClear = true; g.white = 0; }
+        break;
+    }
+    if (e.hp < 0 && e.cs !== 'dying') {
+      e.cs = 'dying'; e.cyc = 0; g.battle = false; g.bossDead = true; g.wind = null;
+      g.bullets.clear(); audio.stopBgm(); g.kid.pop('やったー!!', e.x, e.y + 120, 'rainbow', 'huge');
+    }
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / 160) : 1, cx = e.cx, cy = e.cy, o = e.open;
+    if (e.cs === 'aim') { // the lane lights up
+      ctx.save(); ctx.globalAlpha = 0.18 + 0.15 * (e.cyc % 10 < 5); ctx.fillStyle = '#f84'; ctx.fillRect(e.lane - 70, cy, 140, 480 - cy); ctx.restore();
+    }
+    ctx.save(); ctx.globalAlpha = alpha;
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { // legs
+      const sw = Math.sin(e.t * 0.15 + i * 2 + (s > 0 ? 1 : 0)) * 0.18;
+      ctx.save(); ctx.translate(cx + s * 50, cy - 50 + i * 40); ctx.scale(s, 1); ctx.rotate(-0.3 + i * 0.35 + sw);
+      draw(ctx, RIG('fbLeg'), 50, 0, { scale: 0.9 }); ctx.restore();
+    }
+    // the belly (weak point) under the shell, glowing when open
+    draw(ctx, RIG('fbCore'), cx, cy - 50, { scale: 0.9 });
+    if (o > 0.1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.glowPink, cx, cy - 50, { scale: 0.5 * o + Math.sin(e.t * 0.4) * 0.04, add: true, alpha: o }); ctx.restore(); }
+    // wings: closed over the belly, swing apart when open
+    for (const s of [-1, 1]) {
+      ctx.save(); ctx.translate(cx + s * (22 + o * 70), cy - 120); ctx.rotate(-s * o * 0.7); ctx.scale(s, 1);
+      draw(ctx, RIG('fbWing'), -48, 96, { scale: 0.9 }); if (e.flash) draw(ctx, RIG('fbWing'), -48, 96, { scale: 0.9, add: true, alpha: 0.3 });
+      ctx.restore();
+    }
+    draw(ctx, RIG('fbBody'), cx, cy + 30, { scale: 0.9 });
+    if (e.flash) draw(ctx, RIG('fbBody'), cx, cy + 30, { scale: 0.9, add: true, alpha: 0.25 });
+    ctx.restore();
+    if (o > 0.5 && e.cs === 'open') {
+      ctx.save(); ctx.strokeStyle = `hsl(${(g.t * 10) % 360},100%,60%)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy - 50, 50 + Math.sin(e.t * 0.3) * 6, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    if (e.cs === 'dash') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 1; i < 5; i++) draw(ctx, SPR.sparkWhite, cx, cy - i * 40, { scale: 0.6, add: true, alpha: 0.4 - i * 0.08 }); ctx.restore(); }
+  };
+  return g.spawn(e);
+}
+
+// ================================================================ the waves
+// ---- 1: arrival
+at(60, hint('こおり星に 着いた!'));
+at(160, clump(160, 200, 170)); at(300, clump(480, 440, 190));
+at(320, hint('かたまったら うて! 連さ するよ'));
+at(480, clump(320, 320, 160, 12)); at(620, clump(120, 180, 200)); at(640, clump(520, 460, 200));
+// ---- 2: ice walls, icicles, jellyfish
+at(840, wall(320)); at(860, hint('氷の かべ! ためて うつと 連さで われる!'));
+at(870, (g) => { if (g.charger.weapons.includes('hammer')) g.kid.pop('ハンマーなら 一発!', 320, 430, '#ff5a40', 'normal'); });
+at(1000, jellies(200, 440)); at(1060, wall(140));
+at(1200, icicles(3)); at(1220, hint('つららが ゆれたら 下に いるな!'));
+at(1320, wall(500)); at(1340, jellies(320)); at(1450, icicles(4, true)); at(1520, clump(320, 320, 180, 10));
+at(1640, wall(240)); at(1700, wall(420, 0.8, -110)); at(1760, icicles(3, true));
+// ---- 3: blizzard + armoured hermits
+at(1900, hermits(320)); at(1920, hint('かたい! ためて ビームで つらぬけ!'));
+at(2020, blizzard(1)); at(2060, clump(120, 160, 180)); at(2150, jellies(480));
+at(2350, hermits(140, 500)); at(2420, blizzard(-1)); at(2460, icicles(3)); at(2500, clump(500, 460, 170));
+at(2620, wall(320)); at(2680, hermits(320));
+// ---- 4: mid-boss
+at(2840, (g) => g.kid.pop('でっかいのが くる!', 320, 300, '#f44', 'big'));
+at(2920, (g, X) => { g.mid = iceberg(g, X); g.midDone = false; });
+at(2930, hint('ほうだいは かたい! ビームで こわせ!'));
+// ---- 5: everything
+at(3060, wall(200)); at(3100, jellies(440)); at(3200, clump(320, 320, 170, 12));
+at(3350, hermits(160, 480)); at(3400, icicles(4, true)); at(3500, blizzard(1, 260));
+at(3600, wall(480)); at(3620, jellies(160)); at(3750, clump(160, 200, 160, 10)); at(3760, clump(480, 440, 160, 10));
+at(3900, (g) => { if (g.mega.ready) g.kid.pop('いまだ! メガバースト!', 320, 400, '#6ff', 'hint'); });
+at(4000, hermits(320)); at(4100, icicles(5, true)); at(4200, wall(320)); at(4230, wall(120, 0.8, -110));
+at(4350, blizzard(-1, 260)); at(4380, jellies(200, 440)); at(4500, clump(320, 320, 180, 14)); at(4600, hermits(140, 500));
+// ---- boss
+at(4880, (g) => { audio.stopBgm(); g.kid.warning(); g.wind = null; });
+at(5130, () => audio.playBgm('boss'));
+at(5140, (g, X) => { g.boss = frostBeetle(g, X); });
+at(5280, hint('つのの とっしんの あとに カラが 開く!'));
+at(5340, (g) => { if (g.stageDef.weak && g.charger.weapons.includes(g.stageDef.weak)) g.kid.pop('ハンマーが よく きく!', 320, 430, '#ff5a40', 'normal'); });
+
+const TABLE = new Map();
+for (const [f, fn] of waves) TABLE.set(f, [...(TABLE.get(f) || []), fn]);
+
+function table(g, f) {
+  updateWind(g);
+  if (g.mid && !g.midDone && f > 2930 && f < 3040) { g.frame--; return; }
+  if (g.lastTableF === f) return;
+  g.lastTableF = f;
+  if (f === 0) audio.playBgm(g.stageDef.bgm || 'ice');
+  const fns = TABLE.get(f);
+  if (!fns) return;
+  const cam = g.p.camX ?? -60, X = (x) => Math.fround(Math.fround(x) - cam);
+  for (const fn of fns) fn(g, X);
+}
+
+// ================================================================ background
+const NEB = freeImg('bg/blue.jpg'), STARS = freeImg('bg/stars.jpg');
+const ARRIVE = 760;
+function tileY(ctx, im, off, alpha = 1, add = false) {
+  if (!ready(im) || alpha <= 0) return;
+  const s = 640 / im.width * 0.75, w = im.width * s, h = im.height * s;
+  ctx.save(); ctx.globalAlpha = alpha; if (add) ctx.globalCompositeOperation = 'lighter';
+  const y0 = (off % h) - h;
+  for (let y = y0; y < 480; y += h) for (let x = 0; x < 640; x += w) ctx.drawImage(im, x, y, w + 1, h + 1);
+  ctx.restore();
+}
+function drawBg(ctx, g) {
+  ctx.fillStyle = '#040814'; ctx.fillRect(0, 0, 640, 480);
+  g.scrollY = (g.scrollY || 0) + (g.mega.active ? 0.2 : 1);
+  const f = g.frame, sy = g.scrollY;
+  if (f < ARRIVE + 60) {
+    tileY(ctx, NEB, sy * 0.4, 1); tileY(ctx, STARS, sy * 1.6, 0.8, true);
+    const k = Math.min(1, f / ARRIVE), s = 0.22 + k * k * k * 3.4;
+    draw(ctx, RIG('icePlanet'), 320, 150 + k * k * 380, { scale: s });
+  }
+  const ground = Math.max(0, Math.min(1, (f - ARRIVE + 40) / 100));
+  if (ground > 0) {
+    ctx.save(); ctx.globalAlpha = ground;
+    const y = (sy * 1.1) % 640;
+    draw(ctx, RIG('iceTile'), 320, y - 320); draw(ctx, RIG('iceTile'), 320, y + 320);
+    ctx.fillStyle = 'rgba(8,24,60,0.42)'; ctx.fillRect(0, 0, 640, 480); // keep the sprites readable on white snow
+    ctx.restore();
+    if (f > 4880) { ctx.save(); ctx.globalAlpha = Math.min(0.4, (f - 4880) / 400); ctx.fillStyle = '#0a1a40'; ctx.fillRect(0, 0, 640, 480); ctx.restore(); }
+  }
+  // entry flash (white)
+  if (f > ARRIVE - 140 && f < ARRIVE + 80) {
+    const k = Math.max(0, 1 - Math.abs(f - ARRIVE) / 140);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k; ctx.strokeStyle = '#bef'; ctx.lineWidth = 3;
+    for (let i = 0; i < 16; i++) { const x = (i * 83 + g.t * 7) % 640, yy = (i * 137 + g.t * 22) % 520 - 40; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy + 60); ctx.stroke(); }
+    ctx.fillStyle = `rgba(200,240,255,${k * 0.35})`; ctx.fillRect(0, 0, 640, 480); ctx.restore();
+  }
+  // snowfall (slanted by the wind) + wind arrows
+  if (ground > 0) {
+    const wind = g.windNow || 0;
+    ctx.save(); ctx.fillStyle = '#fff';
+    for (let i = 0; i < 60; i++) {
+      const sp = 1 + (i % 4) * 0.5, yy = (g.t * sp + i * 53) % 500 - 10, xx = ((i * 97 + g.t * wind * 3 * sp + Math.sin(g.t * 0.02 + i) * 10) % 640 + 640) % 640;
+      ctx.globalAlpha = ground * (0.4 + (i % 3) * 0.2); ctx.beginPath(); ctx.arc(xx, yy, 1 + (i % 3), 0, Math.PI * 2); ctx.fill();
+    }
+    if (Math.abs(wind) > 0.3) {
+      ctx.globalAlpha = Math.min(0.6, Math.abs(wind) * 0.5); ctx.strokeStyle = '#dff'; ctx.lineWidth = 2;
+      for (let i = 0; i < 14; i++) { const yy = (i * 37) % 480, xx = ((i * 131 + g.t * wind * 12) % 700 + 700) % 700 - 30; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx - wind * 50, yy); ctx.stroke(); }
+      ctx.globalAlpha = 0.8; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 5; ctx.strokeStyle = '#024';
+      const a = wind > 0 ? '→ → →' : '← ← ←'; ctx.strokeText(a, 320, 70); ctx.fillStyle = '#bff'; ctx.fillText(a, 320, 70);
+    }
+    ctx.restore();
+  }
+}
+
+function portrait(ctx, x, y, s, t) {
+  draw(ctx, RIG('fbBody'), x, y + 8 + Math.sin(t * 0.05) * 2, { scale: s * 0.6 });
+}
+
+const stageIce = {
+  id: 'ice', table, drawBg, portrait, checkpoints: [0, 1880, 2830, 4870],
+  onContinue: (g) => { g.wind = null; g.windNow = 0; if (g.frame >= 2830) g.midDone = true; },
+};
+
+return { wall, iceberg, frostBeetle, stageIce };
+})();
+
 __M['./stages.js'] = (function () {
 // All stages: the tutorial, the four planets (any order, each gives a weapon) and the final stage.
-// マグマ星 is built (stageMagma.js). The other three are still STAND-INS (the tutorial's waves with their own name /
+// マグマ星 (stageMagma.js) and こおり星 (stageIce.js) are built. The other two are still STAND-INS (the tutorial's waves with their own name /
 // colour / music) until each one is built in its own file.
 const { stageM1 } = __M['./stageM1.js'];
 const { stageMagma } = __M['./stageMagma.js'];
+const { stageIce } = __M['./stageIce.js'];
 const standIn = (o) => ({ ...stageM1, ...o });
 const TUTORIAL = stageM1;
 const PLANETS = [
   ({ ...stageMagma, id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0 }),
-  standIn({ id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1 }),
+  ({ ...stageIce, id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1 }),
   standIn({ id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2 }),
   standIn({ id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3 }),
 ];
