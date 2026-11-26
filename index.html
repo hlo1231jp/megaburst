@@ -1681,6 +1681,7 @@ function damage(g, e, v, kind) {
   if (e.armor && kind === 'shot') v *= 0.1;
   if (e.armor && kind === 'drill') v *= 1.5;
   if (e.frozen > 0) v *= 2;
+  else if (e.chill > 0) v *= 1.3; // a chilled boss is brittle too
   if (e.weak) v *= e.weak(kind);
   if (e.boss && (kind === 'orb' || kind === 'blast' || kind === 'bigbeam' || kind === 'laser')) v *= TUNE.bossFactor;
   if (e.weakTo && KIND_WEAPON[kind] === e.weakTo) {
@@ -1938,25 +1939,39 @@ const lockon = {
 const ice = {
   release(g, ch, x, y, lv, mul) {
     audio.se('release1', 0.7); audio.lab('kira2', 0.5, 1.4); vib(25);
-    if (lv === 3) { // freeze everything on screen
-      for (const e of g.enemies) if (onScreen(e)) freeze(g, e, 170);
+    if (lv === 3) { // freeze everything on screen, then (after 40 frames) shatter it all
+      for (const e of g.enemies) if (onScreen(e)) { freeze(g, e, 170); damage(g, e, 6 * mul, 'ice'); }
       for (const b of g.bullets.list) { g.bullets.pool.free(b); g.kid.bulletGem(b.cx, b.cy); }
       g.flashW = 0.5; g.kid.pop('ぜんぶ こおれ!', 320, 240, '#bff', 'big'); audio.lab('aura2', 0.7, 1.3);
-      ch.atks.push({ w: 'ice', kind: 'wave', x, y, t: 0 });
+      ch.atks.push({ w: 'ice', kind: 'wave', x, y, t: 0, mul });
       return;
     }
-    const angs = lv === 2 ? [-0.25, 0, 0.25] : [0];
-    for (const da of angs) ch.atks.push({ w: 'ice', kind: 'shard', x, y: y - 20, vx: Math.sin(da) * 11, vy: -Math.cos(da) * 11, t: 0, mul });
+    // Lv1: 1 shard / Lv2: 5-way. Shards pierce, and every hit bursts into frost that freezes the neighbours too
+    const angs = lv === 2 ? [-0.42, -0.21, 0, 0.21, 0.42] : [0];
+    for (const da of angs) ch.atks.push({ w: 'ice', kind: 'shard', x, y: y - 20, vx: Math.sin(da) * 12, vy: -Math.cos(da) * 12, t: 0, mul, hit: new Set(), left: lv === 2 ? 2 : 3, dmg: lv === 2 ? 5 : 7 });
   },
   update(g, a) {
-    if (a.kind === 'wave') { if (a.t > 30) a.dead = true; return; }
+    if (a.kind === 'wave') {
+      if (a.t === 40) { // パリーン: every frozen enemy shatters
+        g.flashW = 0.35; g.shakeMag = Math.max(g.shakeMag, 6); audio.lab('kira2', 0.9, 0.8); audio.se('bossDown', 0.6);
+        for (const e of g.enemies) if (onScreen(e)) { damage(g, e, (e.boss || e.big ? 14 : 16) * a.mul, 'ice'); g.kid.shards(e.cx, e.cy, e.boss ? 30 : 8); }
+        g.kid.pop('パリーン!!', 320, 220, '#bff', 'huge');
+      }
+      if (a.t > 60) a.dead = true; return;
+    }
     a.x += a.vx; a.y += a.vy;
-    for (const e of g.enemies) if (hitAny(e, a.x, a.y, 14)) { damage(g, e, 3 * a.mul, 'ice'); freeze(g, e, 180); g.pfx.spawn(a.x, a.y, 1, 6); g.show?.ring(a.x, a.y, 50, '190,240,255', 16, 5); a.dead = true; break; }
+    for (const e of g.enemies) if (!a.hit.has(e) && hitAny(e, a.x, a.y, 16)) {
+      a.hit.add(e);
+      damage(g, e, a.dmg * a.mul, 'ice'); freeze(g, e, 180); g.pfx.spawn(a.x, a.y, 1, 6); g.show?.ring(a.x, a.y, 60, '190,240,255', 16, 5);
+      for (const n of g.enemies) if (n !== e && !n.boss && Math.hypot(n.cx - a.x, n.cy - a.y) < 60 + n.r) { freeze(g, n, 120); damage(g, n, 2 * a.mul, 'ice'); } // frost burst
+      if (--a.left <= 0 || e.boss || e.big) { a.dead = true; break; }
+    }
     if (a.y < -40 || a.x < -40 || a.x > 680) a.dead = true;
   },
   draw(ctx, g, a) {
     if (a.kind === 'wave') {
-      ctx.save(); ctx.globalAlpha = 1 - a.t / 30; ctx.strokeStyle = '#bff'; ctx.lineWidth = 20; ctx.beginPath(); ctx.arc(a.x, a.y, a.t * 28, 0, Math.PI * 2); ctx.stroke();
+      if (a.t >= 40) { ctx.save(); ctx.globalAlpha = 1 - (a.t - 40) / 20; ctx.strokeStyle = '#fff'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(320, 240, (a.t - 40) * 30, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); return; }
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - a.t / 40); ctx.strokeStyle = '#bff'; ctx.lineWidth = 20; ctx.beginPath(); ctx.arc(a.x, a.y, a.t * 28, 0, Math.PI * 2); ctx.stroke();
       // frost creeping in from the screen edges
       const fr = ctx.createRadialGradient(320, 240, 160, 320, 240, 420); fr.addColorStop(0, 'rgba(200,240,255,0)'); fr.addColorStop(1, 'rgba(200,240,255,0.7)');
       ctx.fillStyle = fr; ctx.fillRect(0, 0, 640, 480); ctx.restore(); return;
@@ -1970,7 +1985,7 @@ const ice = {
 };
 // frozen enemies stop moving, block bullets and take double damage; bosses only get a short chill
 function freeze(g, e, frames) {
-  if (e.boss || e.big) { e.chill = Math.max(e.chill || 0, 40); return; }
+  if (e.boss || e.big) { e.chill = Math.max(e.chill || 0, 90); return; }
   if (!e.frozen) audio.se('clang', 0.4);
   e.frozen = Math.max(e.frozen || 0, frames);
 }
@@ -2022,7 +2037,7 @@ function countKill(g, e) {
   if (e.frozen > 0 && countLv3('ice')) g.unlockLv3?.('ice');
 }
 
-return { WEAPON, freeze, WEAPONS, countKill };
+return { WEAPON, hammerHead, freeze, WEAPONS, countKill };
 })();
 
 __M['./mega.js'] = (function () {
@@ -2039,7 +2054,22 @@ __M['./mega.js'] = (function () {
 const { SPR, draw } = __M['./assets.js'];
 const { audio } = __M['./audio.js'];
 const { damage, vib } = __M['./combat.js'];
+const { hammerHead } = __M['./weapons.js'];
 const MEGA = { max: 40, min: 6, gem: 0.12, bigGem: 1, bossMul: 1.6 };
+// every weapon has its own MEGA BURST (same power rules, its own show + a bonus):
+//   beam    メガバースト     bolts of light, white blast
+//   hammer  メガ・ハンマー   hammers rain down, then a colossal hammer smashes the screen (cracks): breaks all armour
+//   lockon  メガ・ロックオン  everything gets locked one by one, then a fan of homing lasers
+//   ice     メガ・ブリザード  ice spears, the screen freezes over and shatters: survivors stay frozen
+//   drill   メガ・ドリル     drills fly out, a giant drill rises into a spiral vortex: breaks all armour
+// against a boss whose weakness is that weapon: x1.5
+const MW = {
+  beam: { name: 'メガバースト', col: '#ffd060', rgb: '255,220,120', band: 'rgba(200,20,20,0.85)' },
+  hammer: { name: 'メガ・ハンマー', col: '#ff6a40', rgb: '255,120,70', band: 'rgba(170,30,10,0.9)', say: ['ドゴン', 'ガン', 'ズシン', 'ドガッ'] },
+  lockon: { name: 'メガ・ロックオン', col: '#60ff90', rgb: '110,255,160', band: 'rgba(10,110,50,0.9)', say: ['ピピッ', 'ロック', 'ピピッ', 'ロック'] },
+  ice: { name: 'メガ・ブリザード', col: '#9ff0ff', rgb: '190,245,255', band: 'rgba(20,90,150,0.9)', say: ['キーン', 'ピキッ', 'カキン', 'ピキーン'] },
+  drill: { name: 'メガ・ドリル', col: '#ffd040', rgb: '255,210,80', band: 'rgba(140,100,0,0.9)', say: ['ギュイン', 'ガリガリ', 'ズガガ', 'ギュイーン'] },
+};
 const lvOf = (p) => Math.max(1, Math.min(5, Math.floor(p / 8) + 1));
 const payoutOf = (p) => Math.round(1000 * Math.pow(1.8, p / 4) / 100) * 100;
 const bossDmgOf = (p) => MEGA.bossMul * Math.pow(p, 1.5);
@@ -2067,13 +2097,14 @@ class Mega {
     const g = this.g, p = g.p, n = this.power;
     const lvl = lvOf(n), hits = Math.max(4, Math.min(Math.round(n), 24));
     const pd = Math.round(Math.min(96, 27 + n * 2.2)); // frames of volley
-    this.r = { n, lvl, hits, pd, t: 0, hit: 0, up: false, payout: payoutOf(n), shown: 0, disp: 0, bolts: [], rings: [], roll: null, cheer: false };
+    const w = MW[g.charger.weapon] ? g.charger.weapon : 'beam';
+    this.r = { n, lvl, hits, pd, t: 0, hit: 0, up: false, payout: payoutOf(n), shown: 0, disp: 0, bolts: [], rings: [], roll: null, cheer: false, w, m: MW[w], locks: [], fan: [], cracks: [] };
     this.power = 0; this.active = true; this.count++;
     p.inv = Math.max(p.inv, 1);
     g.charger.t = 0; g.charger.level = 0; audio.chargeStop();
     audio.lab('shakin3', 0.8); audio.lab('charge', 0.6, 1.1);
     vib([40, 30, 40]);
-    g.kid.pop(lvl >= 4 ? 'ちょう・メガバースト!!' : 'メガバースト!!', 320, 300, '#fff', 'big');
+    g.kid.pop((lvl >= 4 ? 'ちょう・' : '') + MW[w].name + '!!', 320, 300, MW[w].col, 'big');
     if (lvl >= 3) this.r.cut = 1; // diagonal cut-in band
     g.stats && g.stats.mega.push(n);
   }
@@ -2089,12 +2120,16 @@ class Mega {
       const k = r.hit / r.hits;
       const e = targets.length ? targets[(r.hit * 7) % targets.length] : null;
       const tx = e ? e.cx : 60 + Math.random() * 520, ty = e ? e.cy : 40 + Math.random() * 260;
-      r.bolts.push({ x0: p.cx, y0: p.cy - 20, x: tx, y: ty, t: 0 });
-      g.fx.push({ kind: 'explo', x: tx, y: ty, t: 0, dur: 24, scale: 0.8 + k * 0.8 });
-      g.shakeMag = Math.max(g.shakeMag, 1 + k * 2.5);
-      audio.se('megaHit', 0.6 + k * 0.4); audio.lab(r.hit % 2 ? 'heavy1' : 'heavy3', 0.35 + k * 0.3, 0.9 + k * 0.3);
+      r.bolts.push({ x0: p.cx, y0: p.cy - 20, x: tx, y: ty, t: 0, s: 0.8 + k * 0.8, a: Math.random() * 6 });
+      if (r.w === 'beam' || r.w === 'drill') g.fx.push({ kind: 'explo', x: tx, y: ty, t: 0, dur: 24, scale: 0.8 + k * 0.8 });
+      if (r.w === 'hammer') { g.fx.push({ kind: 'explo', x: tx, y: ty, t: -5, dur: 24, scale: 1 + k }); g.show?.ring(tx, ty, 70 + k * 60, r.m.rgb, 18, 6); g.show?.chunks(tx, ty, 4, 6); }
+      if (r.w === 'ice') { g.kid.shards(tx, ty, 6); g.show?.ring(tx, ty, 60 + k * 50, r.m.rgb, 16, 5); }
+      if (r.w === 'lockon') { r.locks.push({ x: tx, y: ty, t: 0, e }); g.show?.ring(tx, ty, 40, r.m.rgb, 12, 3); }
+      g.shakeMag = Math.max(g.shakeMag, (r.w === 'lockon' ? 0.5 : 1) + k * 2.5);
+      if (r.w === 'lockon') audio.se('cursor', 0.8); else audio.se('megaHit', 0.6 + k * 0.4);
+      audio.lab(r.w === 'ice' ? 'kira2' : r.hit % 2 ? 'heavy1' : 'heavy3', 0.35 + k * 0.3, (r.w === 'ice' ? 1.4 : 0.9) + k * 0.3);
       r.shown = r.payout * 0.5 * k * k;
-      if (r.hit % 3 === 0) g.kid.pop(['ドン', 'ズドン', 'バシュッ', 'ドドン'][r.hit % 4], tx + (Math.random() - 0.5) * 40, ty - 10, '#fc6', 'small');
+      if (r.hit % 3 === 0) g.kid.pop((r.m.say || ['ドン', 'ズドン', 'バシュッ', 'ドドン'])[r.hit % 4], tx + (Math.random() - 0.5) * 40, ty - 10, r.m.col, 'small');
       vib(10);
     }
     // silence
@@ -2107,23 +2142,30 @@ class Mega {
       vib([120, 40, 200]);
       // destroy / damage everything on screen
       let kills = 0;
+      const breaks = r.w === 'hammer' || r.w === 'drill';
       for (const e of g.enemies) {
         if (e.cy < -60 || e.cy > 540) continue;
+        if (breaks && e.armor && !e.boss) { e.armor = false; g.kid.pop('こうらが われた!', e.cx, e.cy - 20, r.m.col, 'small'); }
+        if (r.w === 'lockon') r.fan.push({ x: e.cx, y: e.cy, p1: [p.cx + (Math.random() - 0.5) * 600, p.cy - 100 - Math.random() * 200] });
         if (e.boss || e.big) {
-          const open = e.weak && e.weak('mega') > 1;
-          const d = bossDmgOf(r.n) * (open ? 2 : 1);
+          const open = e.weak && e.weak('mega') > 1, weak = e.weakTo === r.w;
+          const d = bossDmgOf(r.n) * (open ? 2 : 1) * (weak ? 1.5 : 1);
           damage(g, e, d, 'mega');
+          if (weak) g.kid.pop('ききめ ばつぐん!', e.cx, e.cy - 70, 'rainbow', 'big');
           if (open) g.kid.pop('弱点!!', e.cx, e.cy - 40, '#f44', 'big');
           g.kid.pop(`${Math.round(d)}`, e.cx, e.cy, '#fff', 'big');
-        } else { damage(g, e, megaDmgOf(r.n), 'mega'); if (e.hp < 0) kills++; else g.kid.pop('カキン', e.cx, e.cy - 20, '#9cf', 'small'); }
+          if (r.w === 'ice') e.chill = Math.max(e.chill || 0, 200);
+        } else { damage(g, e, megaDmgOf(r.n), 'mega'); if (e.hp < 0) kills++; else { g.kid.pop('カキン', e.cx, e.cy - 20, '#9cf', 'small'); if (r.w === 'ice') e.frozen = Math.max(e.frozen || 0, 240); } }
       }
+      if (r.w === 'hammer') for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2 + Math.random() * 0.3, pts = [[320, 240]]; let x = 320, y = 240; for (let j = 0; j < 6; j++) { x += Math.cos(a + (Math.random() - 0.5) * 0.7) * 45; y += Math.sin(a + (Math.random() - 0.5) * 0.7) * 45; pts.push([x, y]); } r.cracks.push(pts); }
       for (const e of [...g.enemies]) if (e.lastHit === 'mega' && e.hp < 0 && !e.boss && !e.big && e.cy >= -60 && e.cy <= 540) g.killEnemy(e);
       for (const b of g.bullets.list) { g.kid.bulletGem(b.cx, b.cy); g.bullets.pool.free(b); }
       g.mega.lastKills = kills;
-      for (let i = 0; i < 6 + r.lvl * 3; i++) g.fx.push({ kind: 'explo', x: 40 + Math.random() * 560, y: 30 + Math.random() * 380, t: -Math.floor(Math.random() * 30), dur: 32, scale: 1.5 + Math.random() * 1.5 });
-      r.rings.push({ x: p.cx, y: p.cy, t: 0 });
+      if (r.w !== 'ice') for (let i = 0; i < 6 + r.lvl * 3; i++) g.fx.push({ kind: 'explo', x: 40 + Math.random() * 560, y: 30 + Math.random() * 380, t: -Math.floor(Math.random() * 30), dur: 32, scale: 1.5 + Math.random() * 1.5 });
+      r.rings.push({ x: r.w === 'hammer' ? 320 : p.cx, y: r.w === 'hammer' ? 240 : p.cy, t: 0 });
       if (r.lvl >= 3) for (let i = 0; i < r.lvl; i++) r.rings.push({ x: 80 + Math.random() * 480, y: 60 + Math.random() * 240, t: -6 - i * 8, small: true });
-      g.kid.pop(r.lvl >= 4 ? 'ちょう・メガバースト!!' : 'メガバースト!!', 320, 200, '#ff4', 'huge');
+      if (r.w === 'ice') for (let i = 0; i < 8; i++) g.kid.shards(60 + Math.random() * 520, 40 + Math.random() * 360, 14);
+      g.kid.pop((r.lvl >= 4 ? 'ちょう・' : '') + r.m.name + '!!', 320, 200, r.w === 'beam' ? '#ff4' : r.m.col, 'huge');
       g.kid.shards(p.cx, p.cy - 120, 40 + r.lvl * 25);
       for (let i = 0; i < r.lvl; i++) g.kid.shards(80 + Math.random() * 480, 60 + Math.random() * 240, 20);
       audio.bgmLevel(1, 0.4);
@@ -2141,7 +2183,10 @@ class Mega {
       }
     } else r.disp = r.shown;
     for (const b of r.bolts) b.t++;
-    r.bolts = r.bolts.filter((b) => b.t < 10);
+    r.bolts = r.bolts.filter((b) => b.t < (r.w === 'hammer' || r.w === 'ice' ? 14 : 10));
+    for (const q of r.locks) { q.t++; if (q.e && !q.e.dead) { q.x = q.e.cx; q.y = q.e.cy; } }
+    for (const q of r.fan) { q.t = (q.t || 0) + 1; }
+    if (r.silent && !r.up && r.w === 'lockon' && (r.t - r.pd) % 3 === 0) audio.se('cursor', 0.6);
     for (const q of r.rings) q.t++;
     if (r.cut) r.cut++;
     if (r.t >= r.pd + 18 + cd + 40) this.finish();
@@ -2159,17 +2204,58 @@ class Mega {
   // ---- drawing: bolts, rings, cut-in band, payout number
   draw(ctx) {
     const r = this.r; if (!r) return;
+    const p = this.g.p, w = r.w, sil = r.t - r.pd, up = r.t - r.pd - 18; // sil: frames into the silence, up: after the finisher
+    // ---- before the finisher: the weapon's big move builds up
+    if (!r.up && sil >= 0) {
+      const k = Math.min(1, sil / 18);
+      if (w === 'hammer') { const hd = hammerHead(); if (hd) { ctx.save(); ctx.translate(320, -220 + 460 * k * k); ctx.rotate(Math.sin(sil * 0.5) * 0.08); const hg = ctx.createLinearGradient(-22, 0, 22, 0); hg.addColorStop(0, '#3a2010'); hg.addColorStop(0.5, '#a0683a'); hg.addColorStop(1, '#3a2010'); ctx.fillStyle = hg; ctx.fillRect(-22, -560, 44, 440); ctx.fillStyle = '#5a6270'; ctx.fillRect(-30, -150, 60, 30); ctx.drawImage(hd, -160, -160, 320, 320); ctx.restore(); } }
+      if (w === 'ice') { ctx.save(); ctx.globalAlpha = k * 0.55; ctx.fillStyle = '#d8f8ff'; ctx.fillRect(0, 0, 640, 480); ctx.globalAlpha = k; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (let i = 0; i < 18; i++) { const a = i * 2.4, x = 320 + Math.cos(a) * 300, y = 240 + Math.sin(a) * 220; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a + 2) * 60 * k, y + Math.sin(a + 2) * 60 * k); ctx.stroke(); } ctx.restore(); }
+      if (w === 'drill') drillShape(ctx, p.cx, p.cy - 60 - k * 260, 4 + k * 2, r.t);
+      if (w === 'lockon') label(ctx, 'ぜんぶ ロック!', 320, 300, 30, r.m.col);
+    }
+    // ---- lock-on: the cursors stay on their targets until the lasers fly
+    if (w === 'lockon' && !(r.up && up > 4)) for (const q of r.locks) { const s = Math.max(1, 2.5 - q.t * 0.2); draw(ctx, SPR.lockCursor, q.x, q.y, { scale: s, rot: q.t * 0.08, alpha: 0.95 }); }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (const b of r.bolts) {
       const k = b.t / 10;
+      if (w === 'hammer' || w === 'ice') { // falls from the sky onto the target
+        const f = Math.min(1, b.t / 6), x = b.x - (w === 'ice' ? 160 : 0) * (1 - f), y = b.y - 240 * (1 - f) * (1 - f);
+        ctx.globalAlpha = b.t < 8 ? 1 : 1 - (b.t - 8) / 6;
+        if (w === 'hammer') { const hd = hammerHead(); if (hd) { ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y); ctx.rotate(b.a + b.t * 0.4 * (1 - f)); ctx.drawImage(hd, -24 * b.s, -24 * b.s, 48 * b.s, 48 * b.s); ctx.restore(); } }
+        else { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(240, 160) - Math.PI / 2); ctx.fillStyle = '#e8fcff'; ctx.strokeStyle = '#4ac0e8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 40 * b.s); ctx.lineTo(9 * b.s, 0); ctx.lineTo(0, -16 * b.s); ctx.lineTo(-9 * b.s, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
+        if (b.t >= 6) draw(ctx, SPR.flareWhite, b.x, b.y, { scale: 0.8 * b.s * (1 - (b.t - 6) / 8), add: true });
+        continue;
+      }
+      if (w === 'drill') { const f = Math.min(1, b.t / 5); ctx.globalAlpha = 1 - Math.max(0, (b.t - 5) / 5); drillShape(ctx, b.x0 + (b.x - b.x0) * f, b.y0 + (b.y - b.y0) * f, 1.6, b.t * 3, Math.atan2(b.y - b.y0, b.x - b.x0) + Math.PI / 2); continue; }
+      if (w === 'lockon') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = r.m.col; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(b.x0, b.y0); ctx.quadraticCurveTo(b.x0 + (b.a - 3) * 60, b.y0 - 160, b.x, b.y); ctx.stroke(); continue; }
       ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#fd6'; ctx.lineWidth = 10 * (1 - k) + 2;
       ctx.beginPath(); ctx.moveTo(b.x0, b.y0); ctx.lineTo(b.x, b.y); ctx.stroke();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
     }
+    ctx.globalAlpha = 1;
+    // ---- after the finisher
+    if (r.up) {
+      if (w === 'lockon' && up < 24) { // a fan of homing lasers to everything
+        const k = up / 24;
+        for (const q of r.fan) for (const [lw, col] of [[12, 'rgba(60,255,140,0.25)'], [4, '#d8ffe4']]) {
+          ctx.globalAlpha = 1 - k; ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(p.cx, p.cy - 20); ctx.quadraticCurveTo(q.p1[0], q.p1[1], q.x, q.y); ctx.stroke();
+        }
+      }
+      if (w === 'hammer' && up < 70) { // the ground cracks, glowing
+        ctx.globalAlpha = Math.min(1, (70 - up) / 30); ctx.lineJoin = 'round';
+        for (const pts of r.cracks) for (const [lw, col] of [[10, 'rgba(255,90,20,0.4)'], [3, '#fff0c0']]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
+      }
+      if (w === 'drill' && up < 50) { // spiral vortex
+        ctx.globalAlpha = 1 - up / 50; ctx.strokeStyle = r.m.col; ctx.lineWidth = 6;
+        for (let arm = 0; arm < 5; arm++) { ctx.beginPath(); for (let i = 0; i < 40; i++) { const a = arm * 1.256 + i * 0.18 - up * 0.25, rr = i * 12 + up * 4; const x = 320 + Math.cos(a) * rr, y = 240 + Math.sin(a) * rr * 0.8; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      }
+      if (w === 'ice' && up < 40) { ctx.globalAlpha = (1 - up / 40) * 0.5; ctx.fillStyle = '#e8fcff'; ctx.fillRect(0, 0, 640, 480); }
+      ctx.globalAlpha = 1;
+    }
     for (const q of r.rings) {
       if (q.t < 0) continue;
       const k = Math.min(1, q.t / (q.small ? 24 : 40)), R = (q.small ? 120 : 700) * (1 - Math.pow(1 - k, 2));
-      ctx.globalAlpha = 1 - k; ctx.strokeStyle = q.small ? `hsl(${(q.t * 20) % 360},100%,65%)` : '#fff'; ctx.lineWidth = q.small ? 8 : 30;
+      ctx.globalAlpha = 1 - k; ctx.strokeStyle = q.small ? `hsl(${(q.t * 20) % 360},100%,65%)` : w === 'beam' ? '#fff' : r.m.col; ctx.lineWidth = q.small ? 8 : 30;
       ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.restore();
@@ -2186,10 +2272,10 @@ class Mega {
     if (r.cut && r.cut < 70) {
       const k = r.cut < 10 ? r.cut / 10 : r.cut > 55 ? (70 - r.cut) / 15 : 1;
       ctx.save(); ctx.globalAlpha = k; ctx.translate(320, 120); ctx.rotate(-0.12);
-      ctx.fillStyle = 'rgba(200,20,20,0.85)'; ctx.fillRect(-400, -34, 800, 68);
-      ctx.fillStyle = '#ff4'; ctx.fillRect(-400, -40, 800, 6); ctx.fillRect(-400, 34, 800, 6);
-      label(ctx, `メガ Lv${r.lvl}`, -160 + (1 - k) * -200, 14, 40, '#fff');
-      label(ctx, '全部、ふきとばせ!!', 120 + (1 - k) * 200, 12, 28, '#ff4');
+      ctx.fillStyle = r.m.band; ctx.fillRect(-400, -34, 800, 68);
+      ctx.fillStyle = w === 'beam' ? '#ff4' : r.m.col; ctx.fillRect(-400, -40, 800, 6); ctx.fillRect(-400, 34, 800, 6);
+      label(ctx, `メガ Lv${r.lvl}`, -170 + (1 - k) * -200, 14, 36, '#fff');
+      label(ctx, w === 'beam' ? '全部、ふきとばせ!!' : r.m.name + '!!', 110 + (1 - k) * 200, 12, 28, w === 'beam' ? '#ff4' : r.m.col);
       ctx.restore();
     }
     // payout number
@@ -2202,6 +2288,18 @@ class Mega {
       ctx.restore();
     }
   }
+}
+
+// a drill (the MEGA drill: flying ones and the giant one); s = size, t = spin, rot = direction (0 = pointing up)
+function drillShape(ctx, x, y, s, t, rot = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  const gr = ctx.createLinearGradient(-10, 0, 10, 0); gr.addColorStop(0, '#7a5a10'); gr.addColorStop(0.5, '#fff0a0'); gr.addColorStop(1, '#7a5a10');
+  ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(10, 6); ctx.lineTo(-10, 6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#5a4008'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 5; i++) { const yy = -20 + i * 5 + ((t * 1.5) % 5); const hw = 10 * (yy + 26) / 32; ctx.beginPath(); ctx.moveTo(-hw, yy); ctx.lineTo(hw, yy + 3); ctx.stroke(); }
+  ctx.fillStyle = '#c0c8d4'; ctx.fillRect(-7, 6, 14, 10);
+  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 3; i++) { const a = t * 0.5 + i * 2.1; draw(ctx, SPR.sparkWhite, x + Math.cos(a) * 10 * s, y - 14 * s + Math.sin(a) * 4 * s, { scale: 0.08 * s, add: true }); } ctx.restore();
 }
 
 // 1234567 -> "123万4567" (big numbers with 万 / 億, like Muscle Climber)
@@ -3323,7 +3421,8 @@ class Kid {
     }
     // boss bar
     const b = g.boss;
-    if (b && !b.dead && b.bar > 0) {
+    if (b && !b.dead && b.bar > 0 && b.drawBar) b.drawBar(ctx, g); // (the mother: one block per form)
+    else if (b && !b.dead && b.bar > 0) {
       const bw = Math.min(1, b.bar / 286) * 300, max = b.maxHp || 255;
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(170, 452, bw, 18);
       ctx.fillStyle = '#f33'; ctx.fillRect(172, 454, Math.max(0, (bw - 4) * Math.max(0, b.hp) / max), 14);
@@ -3517,6 +3616,87 @@ class Launch {
 return { Launch };
 })();
 
+__M['./shiplook.js'] = (function () {
+// The ship shows its weapon at a glance: the hull takes the weapon's colour and carries the weapon's gear.
+//   beam   blue hull, twin blue cannons glowing at the nose
+//   hammer red armour plates on the wings, a steel hammer head on the nose (swings a little)
+//   lockon green hull, a rotating target sight around the ship, radar pods with blinking lights
+//   ice    cyan hull, ice crystals growing from the wing tips and the nose, frost sparkles
+//   drill  yellow hull with hazard stripes, a spinning drill on the nose
+const { SPR, draw } = __M['./assets.js'];
+const { WEAPON, hammerHead } = __M['./weapons.js'];
+const tints = {};
+// any picture tinted in a colour (only where the picture is), cached by key
+function tintImage(img, col, a, key) {
+  if (!img || !img.width || typeof document === 'undefined') return img;
+  if (tints[key]) return tints[key];
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-atop'; x.globalAlpha = a; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height);
+  return (tints[key] = c);
+}
+// the ship picture tinted in a colour (cached per colour)
+function tintedShip(ship, w) {
+  if (w === 'beam' || typeof document === 'undefined' || !ship || !ship.width) return ship;
+  const key = w + ship.width;
+  if (tints[key]) return tints[key];
+  const c = document.createElement('canvas'); c.width = ship.width; c.height = ship.height;
+  const x = c.getContext('2d');
+  x.drawImage(ship, 0, 0);
+  x.globalCompositeOperation = 'source-atop'; x.globalAlpha = 0.45; x.fillStyle = WEAPON.COLOR[w]; x.fillRect(0, 0, c.width, c.height); // only where the ship is
+  return (tints[key] = c);
+}
+
+// gear drawn over the ship; cx, cy = the ship's centre on screen, s = size (1 normal), t = time
+function drawGear(ctx, w, cx, cy, s, t, bank = 0) {
+  const col = WEAPON.COLOR[w];
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-bank * 0.12); ctx.scale(s, s);
+  if (w === 'beam') {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const dx of [-7, 7]) draw(ctx, SPR.sparkBlue, dx, -40, { scale: 0.22 + Math.sin(t * 0.3 + dx) * 0.04, add: true });
+  }
+  if (w === 'hammer') {
+    for (const sd of [-1, 1]) { // red armour plates
+      ctx.fillStyle = '#8a1a10'; ctx.strokeStyle = '#2a0604'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sd * 12, 4); ctx.lineTo(sd * 30, 14); ctx.lineTo(sd * 28, 28); ctx.lineTo(sd * 12, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff6a40'; ctx.fillRect(sd * 22 - 2, 14, 4, 4);
+    }
+    const hd = hammerHead();
+    if (hd) { ctx.save(); ctx.translate(0, -50); ctx.rotate(Math.sin(t * 0.12) * 0.25); ctx.fillStyle = '#9aa4b4'; ctx.fillRect(-2, 0, 4, 14); ctx.drawImage(hd, -21, -24, 42, 42); ctx.restore(); }
+  }
+  if (w === 'lockon') {
+    ctx.save(); ctx.rotate(t * 0.04); ctx.strokeStyle = col; ctx.globalAlpha = 0.75; ctx.lineWidth = 2; ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.moveTo(0, -52); ctx.lineTo(0, -40); ctx.stroke(); }
+    ctx.restore();
+    for (const sd of [-1, 1]) { // radar pods
+      ctx.fillStyle = '#1a3a24'; ctx.strokeStyle = '#04140a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(sd * 27, 12, 5, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if ((t + (sd > 0 ? 15 : 0)) % 30 < 15) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, sd * 27, 4, { scale: 0.12, add: true }); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(sd * 27, 4, 3, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    }
+  }
+  if (w === 'ice') {
+    const crystal = (x, y, a, l) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = 'rgba(210,250,255,0.9)'; ctx.strokeStyle = '#3aa8d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, -l); ctx.lineTo(4, 0); ctx.lineTo(0, 4); ctx.lineTo(-4, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); };
+    for (const sd of [-1, 1]) { crystal(sd * 26, 16, sd * 1.1, 16); crystal(sd * 22, 10, sd * 0.6, 12); crystal(sd * 28, 22, sd * 1.6, 10); }
+    crystal(0, -46, 0, 14);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) { const a = t * 0.05 + i * 2.1; draw(ctx, SPR.sparkWhite, Math.cos(a) * 34, Math.sin(a) * 30, { scale: 0.1 + 0.05 * Math.sin(t * 0.2 + i), add: true, alpha: 0.8 }); }
+  }
+  if (w === 'drill') {
+    for (const sd of [-1, 1]) { ctx.save(); ctx.beginPath(); ctx.rect(sd > 0 ? 12 : -30, 10, 18, 8); ctx.clip(); ctx.fillStyle = '#ffd040'; ctx.fillRect(-30, 10, 60, 8); ctx.fillStyle = '#1a1406'; for (let i = -36; i < 36; i += 8) { ctx.beginPath(); ctx.moveTo(i, 18); ctx.lineTo(i + 4, 18); ctx.lineTo(i + 8, 10); ctx.lineTo(i + 4, 10); ctx.fill(); } ctx.restore(); }
+    ctx.save(); ctx.translate(0, -50);
+    const gr = ctx.createLinearGradient(-9, 0, 9, 0); gr.addColorStop(0, '#7a5a10'); gr.addColorStop(0.5, '#fff0a0'); gr.addColorStop(1, '#7a5a10');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(9, 4); ctx.lineTo(-9, 4); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#5a4008'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) { const yy = -18 + i * 5 + ((t * 1.5) % 5); const hw = 9 * (yy + 24) / 28; ctx.beginPath(); ctx.moveTo(-hw, yy); ctx.lineTo(hw, yy + 3); ctx.stroke(); }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+return { tintImage, tintedShip, drawGear };
+})();
+
 __M['./game.js'] = (function () {
 // Gameplay core of MEGA BURST (written for the new game; no code path of the original port is left here).
 // Coordinates: 640x480 screen, the ship's (x, y) is its hit centre. Enemies use (x, y) = centre too (cx/cy mirror it).
@@ -3535,6 +3715,7 @@ const { hasLv3, progress, saveProgress } = __M['./progress.js'];
 const { KID, Kid } = __M['./kid.js'];
 const { Mega } = __M['./mega.js'];
 const { Launch } = __M['./launch.js'];
+const { drawGear, tintedShip } = __M['./shiplook.js'];
 const { freeImg, ready } = __M['./free.js'];
 const W = 640, H = 480;
 const SHIP = freeImg('ships/player.png'), SHIP_SH = freeImg('ships/player_shadow.png');
@@ -3841,7 +4022,7 @@ class Game {
 
   drawPlayer(ctx) {
     const p = this.p;
-    if (this.launch) { this.launch.draw(ctx, ready(SHIP) ? SHIP : null, ready(SHIP_SH) ? SHIP_SH : null, this.charger.color?.() || '#58a8ff'); return; }
+    if (this.launch) { this.launch.draw(ctx, ready(SHIP) ? tintedShip(SHIP, this.charger.weapon) : null, ready(SHIP_SH) ? SHIP_SH : null, this.charger.color?.() || '#58a8ff'); return; }
     if (!p.alive || !ready(SHIP)) return;
     const cx = p.x, cy = p.y + 8, s = 0.38, bk = p.bank / 10, sq = 1 - Math.abs(bk) * 0.15;
     const blink = p.inv > 0 && this.t % 8 < 4;
@@ -3861,8 +4042,16 @@ class Game {
       draw(ctx, SPR.flareWhite, ex, cy + 44, { scale: 0.1 * fl, add: true });
     }
     ctx.restore();
+    const w = this.charger.weapon;
     ctx.save(); ctx.globalAlpha = blink ? 0.45 : 1; ctx.translate(cx, cy); ctx.rotate(-bk * 0.12); ctx.scale(s * sq, s);
-    ctx.drawImage(SHIP, -76, -128); ctx.restore();
+    ctx.drawImage(tintedShip(SHIP, w), -76, -128); ctx.restore();
+    ctx.save(); ctx.globalAlpha = blink ? 0.45 : 1; drawGear(ctx, w, cx, cy, 1, this.t, bk); ctx.restore(); // the weapon's gear (shiplook.js)
+    if (this.lastWeapon !== w) { this.lastWeapon = w; this.switchT = this.t; }
+    const sw = this.t - (this.switchT ?? -99);
+    if (sw < 14) { // switching: a flash in the new colour
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, cx, cy, { scale: 1.4 * (1 - sw / 14), add: true });
+      ctx.strokeStyle = col; ctx.lineWidth = 6 * (1 - sw / 14); ctx.beginPath(); ctx.arc(cx, cy, 20 + sw * 5, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
     if (this.t % 150 < 12) { // a glint running over the cockpit now and then
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; const k = (this.t % 150) / 12;
       draw(ctx, SPR.sparkWhite, cx - 4 + k * 8, cy - 18 + k * 6, { scale: 0.22 * Math.sin(k * Math.PI), add: true, rot: this.t * 0.1 }); ctx.restore();
@@ -5937,12 +6126,13 @@ __M['./stageFinal.js'] = (function () {
 //   3 マザー       four forms, one armour petal each (red / blue / green / gold). Each form is weak to a different
 //                  weapon (hammer, ice, lock-on, drill) and attacks with its planet's tricks; after its ring blast the
 //                  great eye opens (100%, MEGA x2). Beaten -> the ending.
-const { SPR, draw } = __M['./assets.js'];
+const { IMG, SPR, draw } = __M['./assets.js'];
+const { tintImage } = __M['./shiplook.js'];
 const { audio } = __M['./audio.js'];
 const { freeImg } = __M['./free.js'];
 const { RIG } = __M['./rig.js'];
 const { mk, shoot, sync } = __M['./monsters.js'];
-const { bossDeath, foreground, drawHazards, hintAt: hint, makeTable, tileY, updateHazards, weakRing } = __M['./stagekit.js'];
+const { addHazard, bossDeath, foreground, drawHazards, hintAt: hint, makeTable, tileY, updateHazards, weakRing } = __M['./stagekit.js'];
 const { emberLine, magmaDragon } = __M['./stageMagma.js'];
 const { clump, frostBeetle, icicles, wall } = __M['./stageIce.js'];
 const { lightning, pairs, thunderEel } = __M['./stageThunder.js'];
@@ -5966,26 +6156,71 @@ function rushStep(g) {
 }
 
 // ================================================================ マザー
-const FHP = 90, WEAK = ['hammer', 'ice', 'lockon', 'drill'], WEAK_NAME = ['ハンマー', 'アイス', 'ロックオン', 'ドリル'];
+// Four forms, each in the colour of the weapon that beats it (the colour IS the hint): ほのお = red = hammer,
+// こおり = cyan = ice, かみなり = green = lock-on, てつ = yellow = drill. Each form grows its own gear (flame crown,
+// ice spikes, thunder orbs, iron plates), a badge under it says what works, and the boss bar shows the forms.
+// Then the second form, 本当のすがた: tentacles and a crown of four crystals; the lit crystal (= the weakness) moves
+// on every 6 seconds; eye laser, spiral bullets, the whole crew of minions.
+const FHP = 90, THP = 150, WEAK = ['hammer', 'ice', 'lockon', 'drill'], WEAK_NAME = ['ハンマー', 'アイス', 'ロックオン', 'ドリル'];
 const FORM_NAME = ['ほのおの 形', 'こおりの 形', 'かみなりの 形', 'てつの 形'];
+const FCOL = ['#ff5a40', '#7ae8ff', '#60ff90', '#ffd040'];
 const PETAL_AT = [[-120, -70], [120, -70], [-120, 80], [120, 80]];
+const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(',');
+
+// the eye laser of the second form: aims (thin red line), then a thick beam down the lane
+function eyeLaser(g, e, x) {
+  const h = addHazard(g, {
+    x,
+    update: (g, h) => { if (h.t === 50) { audio.se('release2', 0.9); g.shakeMag = Math.max(g.shakeMag, 5); } return h.t < 95; },
+    danger: (px) => Math.abs(px - x) < 70,
+    draw: (ctx, g, h) => {
+      const top = e.cy + 30;
+      if (h.t < 50) { ctx.save(); ctx.strokeStyle = `rgba(255,40,80,${0.3 + 0.5 * (h.t % 6 < 3)})`; ctx.lineWidth = 2 + h.t / 20; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, 480); ctx.stroke(); ctx.restore(); return; }
+      const k = Math.min(1, (h.t - 50) / 6) * Math.min(1, (95 - h.t) / 10), w = 46 * k;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createLinearGradient(x - w, 0, x + w, 0); gr.addColorStop(0, 'rgba(255,40,120,0)'); gr.addColorStop(0.35, 'rgba(255,60,140,0.8)'); gr.addColorStop(0.5, '#fff'); gr.addColorStop(0.65, 'rgba(255,60,140,0.8)'); gr.addColorStop(1, 'rgba(255,40,120,0)');
+      ctx.fillStyle = gr; ctx.fillRect(x - w, top, w * 2, 480 - top);
+      draw(ctx, SPR.flareWhite, x, top, { scale: 0.9 * k, add: true }); ctx.restore();
+    },
+  });
+  h.hit = (px) => h.t > 52 && h.t < 90 && Math.abs(px - x) < 30; // (needs the hazard's own clock)
+}
+
 function mother(g, X) {
-  const e = mk(47, X(320), -240, { hp: FHP * 4, r: 74, boss: true, gems: 100, bar: 0, cyc: 0, cs: 'enter', open: 0, white: 0, form: 0, off: [false, false, false, false] });
+  const e = mk(47, X(320), -240, { hp: FHP * 4, r: 74, boss: true, gems: 100, bar: 0, cyc: 0, cs: 'enter', open: 0, white: 0, form: 0, off: [false, false, false, false], grow: 0 });
   e.maxHp = FHP * 4; e.weakTo = WEAK[0]; e.name = 'マザー';
-  e.weak = (kind) => (e.cs === 'change' || e.cs === 'enter' ? 0 : e.open > 0.5 ? 1 : kind === 'mega' ? 1 : 0.3);
+  e.weak = (kind) => (e.cs === 'change' || e.cs === 'enter' || e.cs === 'rebirth' ? 0 : e.open > 0.5 ? 1 : kind === 'mega' ? 1 : e.trueForm ? 0.4 : 0.3);
   const X0 = (x) => x;
+  const say = (f) => { g.kid.pop(`${WEAK_NAME[f]}が よく きく!`, 320, 400, FCOL[f], 'hint'); e.badgeT = 0; };
   e.update = (g, e) => {
-    e.t++; e.cyc++;
+    e.t++; e.cyc++; e.badgeT = (e.badgeT || 0) + 1;
     if (e.bar < 286) e.bar += 2;
     e.open += ((e.cs === 'open' ? 1 : 0) - e.open) * 0.12;
-    if (bossDeath(g, e)) { sync(e); return; }
+    e.grow = Math.min(1, e.grow + 0.02);
+    // one big hit can't skip a form: the HP stops at the form's floor (the change starts there)
+    if (!e.trueForm && e.form < 3 && e.hp < FHP * (3 - e.form)) e.hp = FHP * (3 - e.form);
+    // the last form's HP is gone: not dead yet -> the second form
+    if (!e.trueForm && e.hp <= 0 && e.cs !== 'rebirth') { e.cs = 'rebirth'; e.cyc = 0; e.hp = 1; g.bullets.clear(); g.hazards = []; audio.stopBgm(); }
+    if (e.trueForm && bossDeath(g, e)) { sync(e); return; }
     // the next form when this form's HP is used up
-    if (e.form < 3 && e.hp <= FHP * (3 - e.form) && e.cs !== 'change') { e.cs = 'change'; e.cyc = 0; g.bullets.clear(); g.hazards = []; }
+    if (!e.trueForm && e.form < 3 && e.hp <= FHP * (3 - e.form) && e.cs !== 'change') { e.cs = 'change'; e.cyc = 0; g.bullets.clear(); g.hazards = []; }
+    // second form: the weakness moves on every 6 seconds
+    if (e.trueForm && e.cs !== 'rebirth' && ++e.spinT >= 360) { e.spinT = 0; e.wi = (e.wi + 1) % 4; e.weakTo = WEAK[e.wi]; say(e.wi); audio.lab('kira2', 0.6, 1.1); }
     const f = e.form;
     switch (e.cs) {
-      case 'enter': e.y += 1.2; if (e.y >= 150) { e.cs = 'attack'; e.cyc = 0; g.kid.pop(FORM_NAME[0] + '! ' + WEAK_NAME[0] + 'が よく きく!', 320, 400, '#ff4', 'hint'); } break;
+      case 'enter': e.y += 1.2; if (e.y >= 150) { e.cs = 'attack'; e.cyc = 0; g.kid.pop(FORM_NAME[0] + '!', 320, 230, FCOL[0], 'huge'); say(0); } break;
       case 'attack':
         e.x = 320 + Math.sin(e.t * 0.01) * 90;
+        if (e.trueForm) { // second form: spiral, two eye lasers, minions
+          const c = e.cyc;
+          if (c < 150 && c % 6 === 0) shoot(g, 3, 2.6, 2, e.x - 8, e.y + 20, c * 1300);
+          if (c === 170 || c === 260) eyeLaser(g, e, Math.max(60, Math.min(580, g.px)));
+          if (c === 200) { emberLine(160, 1)(g, X0); pairs(440, -1, 2)(g, X0); }
+          if (c === 330) vee(e.x < 320 ? 440 : 200, 7)(g, X0);
+          if (c % 80 === 40) shoot(g, 5, 3.2, 3, e.x - 8, e.y + 90);
+          if (c > 380) { e.cs = 'charge'; e.cyc = 0; audio.lab('charge', 0.8, 0.6); g.kid.pop('なにか くる…!', e.x, e.y + 160, '#fc6'); }
+          break;
+        }
         if (f === 0) { if (e.cyc % 100 === 50) emberLine(e.cyc % 200 < 100 ? 160 : 480, e.cyc % 200 < 100 ? 1 : -1)(g, X0); if (e.cyc % 70 === 35) shoot(g, 5, 2.8, 3, e.x - 8, e.y + 90); }
         if (f === 1) { if (e.cyc % 110 === 55) icicles(2, true)(g); if (e.cyc % 90 === 45) shoot(g, 10, 2.0, 2, e.x - 8, e.y + 60, e.t * 80); if (e.cyc === 150) wall(g.px)(g, X0); }
         if (f === 2) { if (e.cyc % 130 === 30) pairs(e.cyc % 260 < 130 ? 160 : 400, 1, 2)(g, X0); if (e.cyc % 150 === 100) lightning(g, g.px); if (e.cyc % 80 === 40) shoot(g, 3, 3.0, 3, e.x - 8, e.y + 90); }
@@ -5996,46 +6231,176 @@ function mother(g, X) {
         if (e.cyc > 60) { e.cs = 'blast'; e.cyc = 0; audio.se('release3', 0.8); g.shakeMag = Math.max(g.shakeMag, 6); }
         break;
       case 'blast':
-        if (e.cyc % 22 === 0) shoot(g, 12 + f * 2, 2.4, 2, e.x - 8, e.y, e.cyc * 900);
+        if (e.cyc % 22 === 0) shoot(g, e.trueForm ? 20 : 12 + f * 2, 2.4, 2, e.x - 8, e.y, e.cyc * 900);
         if (e.cyc > 50) { e.cs = 'open'; e.cyc = 0; audio.lab('kira2', 0.8, 0.6); g.kid.pop('目が 開いた! いまだ!', e.x, e.y + 150, 'rainbow', 'big'); }
         break;
       case 'open':
         if (e.cyc > 180) { e.cs = 'attack'; e.cyc = 0; }
         break;
-      case 'change': // the petal of this form breaks off, the next form wakes up
+      case 'change': // the petal of this form breaks off; the body glows white and comes back in the next colour
         if (e.cyc % 6 === 0) { const [dx, dy] = PETAL_AT[f]; g.explosion(e.x + dx + (Math.random() - 0.5) * 80, e.y + dy + (Math.random() - 0.5) * 80, 'M', false); audio.se('enemyDown', 0.9); }
         g.shakeMag = Math.max(g.shakeMag, 3);
-        if (e.cyc === 40) { e.off[f] = true; audio.se('bossDown', 1); g.kid.shards(e.x + PETAL_AT[f][0], e.y + PETAL_AT[f][1], 40); g.kid.pop('形が かわった!', 320, 220, 'rainbow', 'huge'); }
-        if (e.cyc > 120) { e.form++; e.weakTo = WEAK[e.form]; e.cs = 'attack'; e.cyc = 0; g.kid.pop(FORM_NAME[e.form] + '! ' + WEAK_NAME[e.form] + 'が よく きく!', 320, 400, '#ff4', 'hint'); audio.se('warning', 0.6); }
+        if (e.cyc === 40) { e.off[f] = true; audio.se('bossDown', 1); g.kid.shards(e.x + PETAL_AT[f][0], e.y + PETAL_AT[f][1], 40); g.kid.pop('形が かわった!', 320, 200, 'rainbow', 'huge'); }
+        if (e.cyc === 70) { e.form++; e.weakTo = WEAK[e.form]; e.grow = 0; g.flashW = 0.6; audio.se('superOn', 0.8); g.show?.ring(e.x, e.y, 260, hex2rgb(FCOL[e.form]), 34, 12); g.kid.pop(FORM_NAME[e.form] + '!', 320, 230, FCOL[e.form], 'huge'); }
+        if (e.cyc > 130) { e.cs = 'attack'; e.cyc = 0; say(e.form); audio.se('warning', 0.6); }
         break;
+      case 'rebirth': { // the second form is born
+        const c = e.cyc;
+        if (c < 120 && c % 5 === 0) { g.explosion(e.x + (Math.random() - 0.5) * 260, e.y + (Math.random() - 0.5) * 200, 'M', false); audio.se('enemyDown', 0.9); }
+        g.shakeMag = Math.max(g.shakeMag, c < 120 ? 4 : 1);
+        if (c === 60) g.kid.pop('まだだ…!!', 320, 330, '#f6a', 'huge');
+        if (c === 120) { g.flashW = 1; audio.se('bossDown', 1); audio.lab('explode2', 1, 0.6); g.kid.shards(e.x, e.y, 80); e.off = [true, true, true, true]; e.trueForm = true; e.grow = 0; e.wi = 0; e.spinT = 0; }
+        if (c === 150) { audio.playBgm('boss'); g.kid.pop('マザーの 本当の すがた!!', 320, 230, 'rainbow', 'huge'); g.show?.ring(e.x, e.y, 320, '255,120,220', 40, 14); }
+        if (c > 230) { e.cs = 'attack'; e.cyc = 0; e.maxHp = THP; e.hp = THP; e.cracks = null; e.wi = 0; e.spinT = 0; e.weakTo = WEAK[0]; e.name = '本当のマザー'; say(0); g.kid.pop('光る 石の 色が 弱点!', 320, 360, '#fff', 'big'); }
+        break;
+      }
     }
     sync(e);
   };
+  // boss bar: one block per form (+ the hidden second form), the current one shows its HP
+  e.drawBar = (ctx, g) => {
+    const x0 = 120, y0 = 450, bw = 400, segs = 5, sw = bw / segs;
+    ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0 - 4, y0 - 4, bw + 8, 26);
+    for (let i = 0; i < segs; i++) {
+      const x = x0 + i * sw + 2, cur = e.trueForm ? i === 4 : i === e.form, done = e.trueForm ? i < 4 : i < e.form;
+      const col = i < 4 ? FCOL[i] : `hsl(${(g.t * 6) % 360},90%,65%)`;
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x, y0, sw - 4, 18);
+      if (cur) { const k = e.trueForm ? Math.max(0, e.hp) / THP : Math.max(0, Math.min(1, (e.hp - FHP * (3 - e.form)) / FHP)); ctx.fillStyle = col; ctx.fillRect(x, y0, (sw - 4) * k, 18); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x - 1, y0 - 1, sw - 2, 20); }
+      else if (!done) { ctx.globalAlpha = 0.35; ctx.fillStyle = i < 4 ? col : '#888'; ctx.fillRect(x, y0, sw - 4, 18); ctx.globalAlpha = 1; }
+      else { ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('×', x + sw / 2 - 2, y0 + 14); }
+      if (i === 4 && !e.trueForm) { ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('?', x + sw / 2 - 2, y0 + 14); }
+    }
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#fff'; ctx.fillText(e.trueForm ? '本当のマザー' : `マザー 形${e.form + 1}/4`, x0 - 8, y0 + 14);
+    ctx.restore();
+  };
   e.draw = (ctx, e, g) => {
     const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / 160) : 1, cx = e.cx, cy = e.cy;
+    const wi = e.trueForm ? e.wi : e.form, col = FCOL[wi], gr = ease(e.grow), t = e.t;
     ctx.save(); ctx.globalAlpha = alpha;
-    const breathe = 1 + Math.sin(e.t * 0.04) * 0.02;
-    draw(ctx, RIG('mzBody'), cx, cy, { scale: 0.9 * breathe });
-    if (e.flash) draw(ctx, RIG('mzBody'), cx, cy, { scale: 0.9 * breathe, add: true, alpha: 0.2 });
+    const breathe = 1 + Math.sin(t * 0.04) * 0.02, sc = (e.trueForm ? 1.12 : 0.9) * breathe;
+    // the aura in the weakness colour
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const ag = ctx.createRadialGradient(cx, cy, 40, cx, cy, 210); ag.addColorStop(0, col + '66'); ag.addColorStop(1, col + '00');
+    ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(cx, cy, 210, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    if (e.trueForm) drawTentacles(ctx, e, cx, cy, gr);
+    else drawFormGear(ctx, e, cx, cy, e.form, gr, true); // gear behind the body
+    // the body in the form's colour (second form: almost black with a red glow)
+    const bodyKey = RIG('mzBody')[0], tcol = e.trueForm ? '#200010' : col, tk = e.trueForm ? 'mzT' : 'mz' + e.form;
+    const body = tintImage(IMG[bodyKey], tcol, e.trueForm ? 0.55 : 0.5, tk);
+    if (body) { ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.drawImage(body, -body.width / 2, -body.height / 2); ctx.restore(); }
+    else draw(ctx, RIG('mzBody'), cx, cy, { scale: sc });
+    if (e.flash) draw(ctx, RIG('mzBody'), cx, cy, { scale: sc, add: true, alpha: 0.2 });
+    tintOver(ctx, cx, cy, 120 * sc, e.trueForm ? '#ff2060' : col, 0.3);
     PETAL_AT.forEach(([dx, dy], k) => {
       if (e.off[k]) return;
-      const right = dx > 0, wob = Math.sin(e.t * 0.05 + k) * 0.05;
+      const right = dx > 0, wob = Math.sin(t * 0.05 + k) * 0.05;
       ctx.save(); ctx.translate(cx + dx, cy + dy); ctx.rotate((dy > 0 ? 0.6 : -0.2) * (right ? -1 : 1) + wob); if (right) ctx.scale(-1, 1); if (dy > 0) ctx.scale(1, -1);
       draw(ctx, RIG('mzPetal' + k), 0, 0, { scale: 0.75 });
-      if (k === e.form && e.cs !== 'change') draw(ctx, RIG('mzPetal' + k), 0, 0, { scale: 0.75, add: true, alpha: 0.25 + Math.sin(e.t * 0.15) * 0.15 });
+      if (k === e.form && e.cs !== 'change') draw(ctx, RIG('mzPetal' + k), 0, 0, { scale: 0.75, add: true, alpha: 0.35 + Math.sin(t * 0.15) * 0.2 });
       ctx.restore();
     });
+    if (!e.trueForm) drawFormGear(ctx, e, cx, cy, e.form, gr, false); // gear in front
+    else drawCrown(ctx, e, cx, cy, gr);
     // the eye: looks at the ship; the lid opens after the blast
-    const a = Math.atan2(g.py - cy, g.px - cx), o = e.open;
-    draw(ctx, RIG('mzEye'), cx, cy, { scale: 0.9 });
-    ctx.save(); ctx.fillStyle = ['#ff4020', '#40a0ff', '#60ff60', '#ffc020'][e.form]; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 16, cy + Math.sin(a) * 14, 20, 0, Math.PI * 2); ctx.fill();
+    const a = Math.atan2(g.py - cy, g.px - cx), o = e.open, es = e.trueForm ? 1.1 : 0.9;
+    draw(ctx, RIG('mzEye'), cx, cy, { scale: es });
+    ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 16, cy + Math.sin(a) * 14, 20 * es / 0.9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(cx + Math.cos(a) * 18, cy + Math.sin(a) * 16, 6, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    if (o < 0.95) draw(ctx, RIG('mzLid'), cx, cy, { sx: 0.9, sy: 0.9 * (1 - o) }); // the lid shrinks open
+    if (o < 0.95) draw(ctx, RIG('mzLid'), cx, cy, { sx: es, sy: es * (1 - o) }); // the lid shrinks open
     ctx.restore();
     if (e.cs === 'charge') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.glowPink, cx, cy, { scale: 0.4 + e.cyc / 60, add: true, alpha: 0.6 }); ctx.restore(); }
+    if (e.cs === 'change' && e.cyc > 40 && e.cyc < 90) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, cx, cy, { scale: 3 * Math.sin((e.cyc - 40) / 50 * Math.PI), add: true }); ctx.restore(); }
+    if (e.cs === 'rebirth') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.glowPink, cx, cy, { scale: 1 + e.cyc / 40, add: true, alpha: Math.min(1, e.cyc / 100) }); ctx.restore(); }
     if (o > 0.5 && e.cs === 'open') weakRing(ctx, g, cx, cy, 58);
+    // what works: a badge under the boss (weapon colour + name)
+    if (alpha >= 1 && (e.cs === 'attack' || e.cs === 'charge' || e.cs === 'blast' || e.cs === 'open')) {
+      const by = Math.min(400, cy + 150), pulse = 1 + Math.max(0, 1 - e.badgeT / 20) * 0.4, mine = g.charger.weapon === WEAK[wi];
+      ctx.save(); ctx.translate(cx, by); ctx.scale(pulse, pulse);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.strokeStyle = col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-92, -16, 184, 32, 14) : ctx.rect(-92, -16, 184, 32); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(-72, 0, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(`${WEAK_NAME[wi]}が きく!`, -56, 1);
+      ctx.restore();
+      if (mine && t % 30 < 20) { ctx.save(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ff4'; ctx.fillText('いまの 武器で OK!', cx, by + 30); ctx.restore(); }
+    }
   };
   return g.spawn(e);
+}
+const ease = (k) => k * k * (3 - 2 * k);
+// a soft glow of a colour over the body
+function tintOver(ctx, cx, cy, r, col, a) {
+  ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.globalAlpha = a;
+  const tg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); tg.addColorStop(0, col); tg.addColorStop(1, col + '00');
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = tg; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
+// each form's own gear; back = the part behind the body
+function drawFormGear(ctx, e, cx, cy, f, gr, back) {
+  const t = e.t;
+  ctx.save();
+  if (f === 0) { // ほのお: a crown of flames + lava drips
+    if (back) { ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2, r = 125 * gr; draw(ctx, SPR.fire, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.9 - 14, { scale: (1.3 + Math.sin(t * 0.2 + i) * 0.3) * gr, add: true, rot: Math.sin(t * 0.1 + i) * 0.3 }); } }
+    else for (let i = 0; i < 4; i++) { const x = cx - 60 + i * 40, d = ((t * 1.5 + i * 37) % 70) * gr; ctx.fillStyle = 'rgba(255,120,30,0.85)'; ctx.beginPath(); ctx.ellipse(x, cy + 70 + d, 4, 7, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  if (f === 1 && back) { // こおり: ice spikes all around
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + 0.13, l = (60 + (i % 3) * 25) * gr, r0 = 95;
+      ctx.save(); ctx.translate(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0 * 0.85); ctx.rotate(a + Math.PI / 2);
+      const ig = ctx.createLinearGradient(0, 0, 0, -l); ig.addColorStop(0, '#2a7aa8'); ig.addColorStop(0.6, '#bff4ff'); ig.addColorStop(1, '#ffffff');
+      ctx.fillStyle = ig; ctx.strokeStyle = '#0a3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(0, -l); ctx.lineTo(12, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    }
+  }
+  if (f === 1 && !back) { ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 6; i++) { const a = t * 0.02 + i; draw(ctx, SPR.sparkWhite, cx + Math.cos(a) * 140, cy + Math.sin(a) * 110, { scale: 0.2 + 0.1 * Math.sin(t * 0.2 + i), add: true }); } }
+  if (f === 2 && !back) { // かみなり: three orbs circling, arcs to the body
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 0.03 + (i / 3) * Math.PI * 2, ox = cx + Math.cos(a) * 150 * gr, oy = cy + Math.sin(a) * 110 * gr;
+      ctx.strokeStyle = 'rgba(160,255,190,0.85)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ox, oy);
+      for (let k = 1; k <= 6; k++) { const q = k / 6; ctx.lineTo(ox + (cx - ox) * q + (Math.random() - 0.5) * 22, oy + (cy - oy) * q + (Math.random() - 0.5) * 22); } ctx.stroke();
+      draw(ctx, SPR.flareWhite, ox, oy, { scale: 0.45 * gr, add: true }); draw(ctx, SPR.sparkBlue, ox, oy, { scale: 0.6 * gr, add: true, rot: t * 0.2 });
+    }
+  }
+  if (f === 3 && back) { // てつ: a big gear turning behind + iron plates
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(t * 0.01); ctx.fillStyle = '#3a3e46'; ctx.strokeStyle = '#14161a'; ctx.lineWidth = 3;
+    const R = 150 * gr; ctx.beginPath(); for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2, rr = i % 2 ? R : R * 0.86; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+  }
+  if (f === 3 && !back) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6, r = 98;
+      ctx.save(); ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.85); ctx.rotate(a); ctx.scale(gr, gr);
+      ctx.fillStyle = '#6a6e78'; ctx.strokeStyle = '#1a1c20'; ctx.lineWidth = 2; ctx.fillRect(-16, -22, 32, 44); ctx.strokeRect(-16, -22, 32, 44);
+      ctx.fillStyle = '#ffd040'; ctx.fillRect(-16, -4, 32, 8); ctx.fillStyle = '#c8ccd4'; for (const [x, y] of [[-10, -16], [10, -16], [-10, 16], [10, 16]]) { ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+// second form: six tentacles waving behind the body, their tips glowing in the weakness colour
+function drawTentacles(ctx, e, cx, cy, gr) {
+  const t = e.t, col = FCOL[e.wi];
+  for (let k = 0; k < 6; k++) {
+    const base = (k / 6) * Math.PI * 2 + Math.PI / 6;
+    let x = cx + Math.cos(base) * 70, y = cy + Math.sin(base) * 60, a = base;
+    for (let i = 0; i < 10; i++) {
+      a += Math.sin(t * 0.04 + k + i * 0.5) * 0.18;
+      const nx = x + Math.cos(a) * 28 * gr, ny = y + Math.sin(a) * 28 * gr, w = (30 - i * 2.4) * gr;
+      ctx.strokeStyle = '#3a0a30'; ctx.lineWidth = w + 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+      ctx.strokeStyle = i % 2 ? '#8a2a6a' : '#a03a80'; ctx.lineWidth = w; ctx.stroke();
+      x = nx; y = ny;
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, x, y, { scale: 0.3 * gr, add: true }); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 6 * gr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+}
+// second form: a crown of four crystals (red / cyan / green / yellow); the lit one is the weakness right now
+function drawCrown(ctx, e, cx, cy, gr) {
+  const t = e.t;
+  for (let i = 0; i < 4; i++) {
+    const a = -Math.PI / 2 + (i - 1.5) * 0.42, r = 128, x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, lit = i === e.wi;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2); ctx.scale(gr * (lit ? 1.25 : 0.9), gr * (lit ? 1.25 : 0.9));
+    ctx.globalAlpha = lit ? 1 : 0.45; ctx.fillStyle = FCOL[i]; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(11, 0); ctx.lineTo(0, 14); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    if (lit) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, x, y, { scale: 0.7 + Math.sin(t * 0.2) * 0.15, add: true }); ctx.restore(); }
+  }
 }
 
 // ================================================================ the waves
