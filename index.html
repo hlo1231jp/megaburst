@@ -328,6 +328,13 @@ const SIZES = { crab0: [64, 64], crab1: [64, 64], darter0: [72, 72], darter1: [7
 return { shade, trace, eye, leg, buildRig, RIG, addArt };
 })();
 
+__M['./artlist.js'] = (function () {
+// written by tools/import_art.mjs: pictures in assets/art/ that replace the drawn art (same name as in rig.js / art_*.js)
+const ART_LIST = [];
+
+return { ART_LIST };
+})();
+
 __M['./art_magma.js'] = (function () {
 // マグマ星 art, drawn in code with the shared painting kit of rig.js (same look as the other monsters):
 //   ember0/1 ヒノコ (fire sprite), slime マグマスライム, turtle ようがんガメ (armoured), bat0/1 ほのおコウモリ,
@@ -1084,7 +1091,8 @@ __M['./assets.js'] = (function () {
 // Images: no material of the original game is used any more. Every sprite below is built in gfx.js from CC0
 // textures (Kenney Particle Pack) or drawn in code; ships / backgrounds are loaded through free.js.
 const { loadFx } = __M['./gfx.js'];
-const { buildRig } = __M['./rig.js'];
+const { addArt, buildRig } = __M['./rig.js'];
+const { ART_LIST } = __M['./artlist.js'];
 const { buildMagmaArt } = __M['./art_magma.js'];
 const { buildIceArt } = __M['./art_ice.js'];
 const { buildThunderArt } = __M['./art_thunder.js'];
@@ -1094,7 +1102,26 @@ const IMG = {};
 // the single-file build (build.mjs) embeds every asset as a data: URL in globalThis.__ASSETS
 const assetUrl = (path) => (globalThis.__ASSETS && globalThis.__ASSETS[path]) || path;
 
-const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); buildIceArt(IMG); buildThunderArt(IMG); buildJunkArt(IMG); buildFinalArt(IMG); };
+const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); buildIceArt(IMG); buildThunderArt(IMG); buildJunkArt(IMG); buildFinalArt(IMG); await loadArtOverrides(); };
+
+// brushed-up pictures (assets/art/<name>.png, listed in artlist.js by tools/import_art.mjs) replace the drawn art.
+// They are drawn into a canvas of the drawn art's size (a 2x picture is scaled down smoothly), so positions,
+// hit sizes and animation stay exactly the same. A picture that fails to load keeps the drawn art.
+async function loadArtOverrides() {
+  if (typeof document === 'undefined') return;
+  await Promise.all(ART_LIST.map((name) => new Promise((res) => {
+    const old = IMG['rig:' + name], im = new Image();
+    im.onload = () => {
+      const w = old ? old.width : im.width, h = old ? old.height : im.height;
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, w, h);
+      if (old) IMG['rig:' + name] = c; else addArt(IMG, name, c);
+      res();
+    };
+    im.onerror = () => { console.warn('art', name); res(); };
+    im.src = assetUrl(`assets/art/${name}.png`);
+  })));
+}
 
 // [image key, sx, sy, sw, sh]
 const fx = (key, w, h = w) => [key, 0, 0, w, h];
@@ -3135,6 +3162,9 @@ class Kid {
     const grd = ctx.createLinearGradient(x0, 0, x0 + w, 0);
     grd.addColorStop(0, '#29f'); grd.addColorStop(0.5, '#6ff'); grd.addColorStop(1, mg.power >= MEGA.max ? `hsl(${hue},100%,65%)` : '#fff');
     ctx.fillStyle = grd; ctx.fillRect(x0 + 2, y0 + 2, (w - 4) * k, 12);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fillRect(x0 + 2, y0 + 2, (w - 4) * k, 5); // gloss
+    ctx.strokeStyle = mg.ready ? `hsl(${hue},100%,70%)` : 'rgba(200,230,255,0.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, 15);
+    if (k > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, x0 + 2 + (w - 4) * k, y0 + 8, { scale: mg.ready ? 0.22 + Math.sin(g.t * 0.3) * 0.05 : 0.1, add: true, alpha: 0.9 }); ctx.restore(); } // the gauge's glowing tip
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; for (let i = 1; i < 5; i++) ctx.fillRect(x0 + (w * i) / 5 - 1, y0 + 2, 2, 12);
     ctx.save(); ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = mg.ready ? '#ff4' : '#aaa'; ctx.textAlign = 'left';
     ctx.fillText(mg.ready ? `メガ Lv${mg.level}` : 'メガ', x0 + w + 6, y0 + 13); ctx.restore();
@@ -3142,7 +3172,9 @@ class Kid {
     // score (top right, big numbers with 万 / 億) + ships left
     ctx.save(); ctx.textAlign = 'right';
     ctx.font = '900 26px "Arial Black", sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round';
-    const sc = fmt(Math.max(0, g.score)); ctx.strokeText(sc, 634, 28); ctx.fillStyle = '#e8fff0'; ctx.fillText(sc, 634, 28);
+    if (g.score > (this.lastScore ?? 0)) this.scoreBump = 6; this.lastScore = g.score; if (this.scoreBump > 0) this.scoreBump--;
+    const sc = fmt(Math.max(0, g.score)), sb = 1 + (this.scoreBump || 0) * 0.025; // the score bumps when it goes up
+    ctx.save(); ctx.translate(634, 28); ctx.scale(sb, sb); ctx.strokeText(sc, 0, 0); ctx.fillStyle = sb > 1 ? '#fff6a0' : '#e8fff0'; ctx.fillText(sc, 0, 0); ctx.restore();
     ctx.font = 'bold 13px sans-serif'; ctx.lineWidth = 3; const lv = `のこり ${Math.max(0, g.lives)}`; ctx.strokeText(lv, 634, 84); ctx.fillStyle = '#9cf'; ctx.fillText(lv, 634, 84);
     ctx.restore();
     // chain counter
@@ -3552,14 +3584,25 @@ class Game {
     const col = this.charger.color?.() || '#58a8ff';
     ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(cx + 16, cy + 22); ctx.scale(s * sq, s); if (ready(SHIP_SH)) ctx.drawImage(SHIP_SH, -76, -128); ctx.restore();
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    // an aura in the weapon's colour (stronger while charging)
+    const ch = this.charger.charging ? Math.min(1, this.charger.t / 120) : 0;
+    const ag = ctx.createRadialGradient(cx, cy, 10, cx, cy, 70 + ch * 30); ag.addColorStop(0, col + '55'); ag.addColorStop(1, col + '00');
+    ctx.globalAlpha = 0.5 + ch * 0.5 + Math.sin(this.t * 0.15) * 0.1; ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(cx, cy, 70 + ch * 30, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
     const fl = 0.8 + Math.random() * 0.35 + (this.charger.charging ? 0 : 0.2);
-    for (const dx of [-15, 15]) { // engine flames in the weapon's colour
-      draw(ctx, SPR.sparkBlue, cx + dx * sq, cy + 46, { scale: 0.32 * fl, sy: 0.55 * fl, add: true });
-      ctx.globalAlpha = 0.6; ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(cx + dx * sq, cy + 48, 5 * fl, 12 * fl, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    for (const dx of [-15, 15]) { // engine plume: a long coloured flame, a hot white core, a flicker of sparks
+      const ex = cx + dx * sq, len = 26 * fl;
+      const pg = ctx.createLinearGradient(0, cy + 40, 0, cy + 44 + len * 1.6); pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.25, col); pg.addColorStop(1, col + '00');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.moveTo(ex - 7 * fl, cy + 42); ctx.quadraticCurveTo(ex, cy + 44 + len * 2, ex + 7 * fl, cy + 42); ctx.fill();
+      draw(ctx, SPR.sparkBlue, ex, cy + 46, { scale: 0.32 * fl, sy: 0.55 * fl, add: true });
+      draw(ctx, SPR.flareWhite, ex, cy + 44, { scale: 0.1 * fl, add: true });
     }
     ctx.restore();
     ctx.save(); ctx.globalAlpha = blink ? 0.45 : 1; ctx.translate(cx, cy); ctx.rotate(-bk * 0.12); ctx.scale(s * sq, s);
     ctx.drawImage(SHIP, -76, -128); ctx.restore();
+    if (this.t % 150 < 12) { // a glint running over the cockpit now and then
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; const k = (this.t % 150) / 12;
+      draw(ctx, SPR.sparkWhite, cx - 4 + k * 8, cy - 18 + k * 6, { scale: 0.22 * Math.sin(k * Math.PI), add: true, rot: this.t * 0.1 }); ctx.restore();
+    }
     if (this.t - (this.muzzleT ?? -99) < 3) { // muzzle flash at the nose
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       draw(ctx, SPR.flareWhite, cx, cy - 46, { scale: 0.18 + Math.random() * 0.06, add: true, rot: Math.random() * 3 });
@@ -6126,8 +6169,12 @@ class ResultScene {
   draw(ctx) {
     backdrop(ctx, this.t, 'rgba(0,0,0,0.45)');
     const t = this.t;
-    label(ctx, 'ステージ クリア!', W / 2, 70, 40, '#ff4');
-    const rows = [['スコア', fmt(this.score)], ['たおした 敵', this.kills], ['さいだい れんさ', this.maxChain], ['いちばんの メガ', fmt(this.megaBest)]];
+    if (this.stage.planetKey) planet(ctx, 560, 400, 90, this.stage.color, t, this.stage.planetKey); // the planet you just cleared
+    sparkles(ctx, t, 30);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareRed, W / 2, 56, { sx: 2.2, sy: 0.45, add: true, alpha: 0.4 }); ctx.restore();
+    label(ctx, 'ステージ クリア!', W / 2, 70 + Math.max(0, 20 - t) * -3, 40, '#ff4');
+    const up = Math.min(1, Math.max(0, (t - 60) / 50)); // the score counts up
+    const rows = [['スコア', fmt(this.score * up)], ['たおした 敵', this.kills], ['さいだい れんさ', this.maxChain], ['いちばんの メガ', fmt(this.megaBest)]];
     rows.forEach(([lb, v], i) => {
       if (t < 60 + i * 20) return;
       text(ctx, lb, 150, 125 + i * 34, { size: 22, color: '#ccc' });
@@ -6138,7 +6185,12 @@ class ResultScene {
       const s = Math.min(1, (t - at) / 10), on = i < this.stars;
       star(ctx, W / 2 - 80 + i * 80, 290, 30 * (1 + (1 - s) * 0.8), on ? '#fd3' : 'rgba(255,255,255,0.15)');
     }
-    if (t > 220) text(ctx, `ランク ${this.rank}`, W / 2, 360, { size: 30, align: 'center' });
+    if (t > 220) { // the rank stamps down with a burst of light
+      const k = Math.min(1, (t - 220) / 10), s = 1 + (1 - k) * 1.5;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.flareWhite, W / 2 + 60, 350, { scale: 0.9 * (1 - k * 0.5), add: true, alpha: 1 - k * 0.6, rot: t * 0.02 }); if (t < 250) draw(ctx, SPR.ring, W / 2 + 60, 350, { scale: (t - 220) / 6, add: true, alpha: 1 - (t - 220) / 30 }); ctx.restore();
+      text(ctx, 'ランク', W / 2 - 30, 362, { size: 24, align: 'center' });
+      ctx.save(); ctx.translate(W / 2 + 60, 360); ctx.scale(s, s); label(ctx, this.rank, 0, 0, 52, this.rank === 'S' ? '#ff4' : '#fff'); ctx.restore();
+    }
     if (this.newWeapon && t > 250) {
       const info = WEAPON_INFO[this.newWeapon], k = Math.min(1, (t - 250) / 15);
       ctx.save(); ctx.globalAlpha = k;
