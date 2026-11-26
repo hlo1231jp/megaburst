@@ -3384,6 +3384,139 @@ function capsule(ctx, x, y, t) { // energy capsule: a glowing blue pill
 return { KID, Kid };
 })();
 
+__M['./launch.js'] = (function () {
+// Stage clear: the ship blasts off. After the boss is gone the ship glides to the middle, crouches while its
+// engines suck in light, then launches with a huge exhaust column, shock rings and a white flash, doing a barrel
+// roll while it grows (it rushes toward the camera) and leaves through the top with a twinkle. Its shadow stays on
+// the ground and fades away (altitude), the contrail and the launch smoke linger.
+//   T 0-60 glide, 60-110 charge, 110 BLAST, 110-165 climb, 165 twinkle, ...240 done
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const GLIDE = 60, CHARGE = 110, OUT = 165, DONE = 240;
+const ease = (k) => k * k * (3 - 2 * k);
+
+class Launch {
+  constructor(g) {
+    const p = g.p;
+    this.g = g; this.t = 0; this.x0 = p.x; this.y0 = p.y;
+    this.x = p.x; this.y = p.y; this.s = 1; this.roll = 0; this.alt = 0; // s: size (1 = normal), alt: 0 ground .. 1 gone
+    this.trail = []; this.smoke = []; this.suck = []; this.lines = [];
+    this.done = false;
+  }
+  get engines() { return [-15, 15].map((dx) => ({ x: this.x + dx * this.s * Math.cos(this.roll), y: this.y + 8 + 42 * this.s })); }
+
+  update() {
+    const g = this.g, t = ++this.t, r = Math.random;
+    if (t <= GLIDE) { // glide to the launch spot
+      const k = ease(t / GLIDE);
+      this.x = this.x0 + (320 - this.x0) * k; this.y = this.y0 + (390 - this.y0) * k;
+    } else if (t <= CHARGE) { // crouch, rumble, light pours into the engines
+      const k = (t - GLIDE) / (CHARGE - GLIDE);
+      this.x = 320 + (r() - 0.5) * k * 3; this.y = 390 + k * 14 + (r() - 0.5) * k * 3;
+      g.shakeMag = Math.max(g.shakeMag, k * 3);
+      for (let i = 0; i < 3; i++) { const a = r() * Math.PI * 2, d = 90 + r() * 120; this.suck.push({ a, d, life: 1 }); }
+      if (t === GLIDE + 1) audio.lab('charge', 0.8, 0.7);
+      if (t === GLIDE + 10) g.kid.pop('いくぞー!', this.x, this.y - 70, '#8ff', 'big');
+    } else if (t <= OUT) { // climb
+      if (t === CHARGE + 1) {
+        audio.se('release3', 1); audio.se('superOn', 0.9);
+        g.flashW = 0.9; g.shakeMag = 16;
+        for (let i = 0; i < 3; i++) g.show.ring(this.x, this.y + 50, 140 + i * 110, i === 1 ? '255,255,255' : '140,220,255', 30 + i * 6, 10 - i * 2);
+        for (let i = 0; i < 26; i++) this.smoke.push({ x: this.x + (r() - 0.5) * 40, y: this.y + 70, vx: (r() - 0.5) * 9, vy: -r() * 1.5 + 0.5, s: 0.6 + r() * 0.8, life: 90 + r() * 60, t: 0 });
+      }
+      const k = (t - CHARGE) / (OUT - CHARGE);
+      this.alt = k;
+      this.y = 404 - (k * k * 0.85 + k * 0.15) * 720;
+      this.x = 320 + Math.sin(k * Math.PI) * 22;
+      this.s = 1 + k * 1.7;
+      this.roll = ease(Math.min(1, k * 1.3)) * Math.PI * 2; // one barrel roll
+      if (t % 2 === 0) for (const e of this.engines) this.trail.push({ x: e.x, y: e.y, w: 10 * this.s, life: 50 });
+      if (t === OUT - 2) { audio.lab('kira2', 0.7, 1.3); g.show.ring(this.x, 20, 60, '255,255,255', 24, 4); }
+    }
+    if (t > CHARGE && t < CHARGE + 60) for (let i = 0; i < 3; i++) this.lines.push({ x: r() * 640, y: -60, v: 30 + r() * 30, len: 60 + r() * 120, life: 26 });
+    // effects
+    for (const q of this.suck) { q.d -= 6; q.life -= 0.03; }
+    this.suck = this.suck.filter((q) => q.d > 6 && q.life > 0 && this.t <= CHARGE);
+    for (const q of this.trail) { q.life--; q.y += 2; q.w *= 1.01; }
+    this.trail = this.trail.filter((q) => q.life > 0);
+    for (const q of this.smoke) { q.t++; q.x += q.vx; q.y += q.vy + 1.2; q.vx *= 0.95; }
+    this.smoke = this.smoke.filter((q) => q.t < q.life);
+    for (const q of this.lines) { q.y += q.v; q.life--; }
+    this.lines = this.lines.filter((q) => q.life > 0);
+    if (t >= DONE) this.done = true;
+    g.p.x = this.x; g.p.y = this.y; g.p.cx = this.x; g.p.cy = this.y;
+  }
+
+  // the ship (replaces Game.drawPlayer while the launch runs)
+  draw(ctx, ship, shadow, col = '#58a8ff') {
+    const t = this.t, s0 = 0.38, s = s0 * this.s, k = this.alt, cr = Math.cos(this.roll);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    // speed lines
+    for (const q of this.lines) { ctx.strokeStyle = `rgba(200,240,255,${0.5 * q.life / 26})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x, q.y - q.len); ctx.stroke(); }
+    // contrail
+    for (const q of this.trail) { const a = q.life / 50; draw(ctx, SPR.sparkBlue, q.x, q.y, { scale: q.w / 40, sy: q.w / 20, add: true, alpha: a * 0.6 }); }
+    // light sucked into the engines
+    for (const q of this.suck) { const e = this.engines[q.a > Math.PI ? 0 : 1]; draw(ctx, SPR.sparkWhite, e.x + Math.cos(q.a) * q.d, e.y + Math.sin(q.a) * q.d, { scale: 0.18, add: true, alpha: q.life }); }
+    ctx.restore();
+    // launch smoke (normal blend, under the flame)
+    for (const q of this.smoke) { const a = 1 - q.t / q.life; draw(ctx, SPR.smoke, q.x, q.y, { scale: q.s * (0.6 + q.t / 60), alpha: 0.45 * a, rot: q.t * 0.02 }); }
+    // twinkle where it left the screen
+    if (t > OUT - 6 && t < OUT + 30) {
+      const a = 1 - Math.abs(t - OUT) / 30;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      draw(ctx, SPR.sparkWhite, this.x, 14, { scale: 1.2 * a, add: true, rot: t * 0.08 });
+      draw(ctx, SPR.flareWhite, this.x, 14, { scale: 0.6 * a, add: true });
+      ctx.restore();
+    }
+    if (t > OUT) return; // gone: only the leftovers
+    // the shadow stays on the ground, drifts away and fades with the altitude
+    if (shadow && t <= OUT) {
+      ctx.save(); ctx.globalAlpha = 0.35 * (1 - k); ctx.translate(320 + 16 + k * 80, 412 + 22 + k * 60); ctx.scale(s0 * (1 - k * 0.5), s0 * (1 - k * 0.5)); ctx.drawImage(shadow, -76, -128); ctx.restore();
+    }
+    // exhaust: during the charge a white-hot flicker, after the blast a column down to the bottom of the screen
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const charging = t > GLIDE && t <= CHARGE, burning = t > CHARGE;
+    for (const e of this.engines) {
+      const fl = 0.85 + Math.random() * 0.3;
+      if (charging) {
+        const c = (t - GLIDE) / (CHARGE - GLIDE);
+        draw(ctx, SPR.flareWhite, e.x, e.y, { scale: (0.12 + c * 0.35) * fl, add: true });
+      }
+      if (burning) {
+        // right after the blast the column reaches the ground; while climbing it detaches and follows the ship
+        const len = ((1 - k) ** 2 * (Math.max(80, 520 - e.y) + 120) + (1 - (1 - k) ** 2) * 150 * this.s) * fl, w = (11 * this.s * Math.abs(cr) + 7) * fl;
+        const pg = ctx.createLinearGradient(0, e.y, 0, e.y + len);
+        pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.12, col); pg.addColorStop(0.45, 'rgba(255,150,60,0.7)'); pg.addColorStop(1, 'rgba(255,80,20,0)');
+        ctx.fillStyle = pg; ctx.beginPath(); ctx.moveTo(e.x - w, e.y); ctx.quadraticCurveTo(e.x - w * 0.4, e.y + len * 0.6, e.x, e.y + len); ctx.quadraticCurveTo(e.x + w * 0.4, e.y + len * 0.6, e.x + w, e.y); ctx.fill();
+        draw(ctx, SPR.flareWhite, e.x, e.y + 6, { scale: 0.45 * this.s * fl, add: true });
+        draw(ctx, SPR.sparkBlue, e.x, e.y + 30 * this.s, { scale: 0.6 * this.s * fl, sy: 1.6 * this.s * fl, add: true });
+      }
+    }
+    // the aura grows with the charge, then becomes a glow around the climbing ship
+    const ar = (charging ? 70 + (t - GLIDE) * 1.2 : 90) * this.s;
+    const ag = ctx.createRadialGradient(this.x, this.y + 8, 4, this.x, this.y + 8, ar); ag.addColorStop(0, col + '88'); ag.addColorStop(1, col + '00');
+    ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(this.x, this.y + 8, ar, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // afterimages while climbing
+    if (burning && ship) for (let i = 3; i >= 1; i--) {
+      ctx.save(); ctx.globalAlpha = 0.18 * (4 - i) / 3; ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(this.x, this.y + 8 + i * 26 * this.s); ctx.scale(s * Math.max(0.15, Math.abs(cr)), s); ctx.drawImage(ship, -76, -128); ctx.restore();
+    }
+    // the ship: rolling (the width follows cos(roll)), darker when the belly faces us
+    if (ship) {
+      ctx.save(); ctx.translate(this.x, this.y + 8); ctx.scale(s * Math.max(0.12, Math.abs(cr)), s);
+      if (cr < 0) ctx.filter = 'brightness(0.55)';
+      ctx.drawImage(ship, -76, -128); ctx.restore();
+      if (burning && Math.abs(cr) > 0.9) { // a glint when it rolls level
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.sparkWhite, this.x - 6 * this.s, this.y - 10 * this.s, { scale: 0.3 * this.s, add: true, rot: t * 0.2 }); ctx.restore();
+      }
+    }
+  }
+}
+
+return { Launch };
+})();
+
 __M['./game.js'] = (function () {
 // Gameplay core of MEGA BURST (written for the new game; no code path of the original port is left here).
 // Coordinates: 640x480 screen, the ship's (x, y) is its hit centre. Enemies use (x, y) = centre too (cx/cy mirror it).
@@ -3401,6 +3534,7 @@ const { Lv3Show } = __M['./unlock.js'];
 const { hasLv3, progress, saveProgress } = __M['./progress.js'];
 const { KID, Kid } = __M['./kid.js'];
 const { Mega } = __M['./mega.js'];
+const { Launch } = __M['./launch.js'];
 const { freeImg, ready } = __M['./free.js'];
 const W = 640, H = 480;
 const SHIP = freeImg('ships/player.png'), SHIP_SH = freeImg('ships/player_shadow.png');
@@ -3473,7 +3607,11 @@ class Game {
     this.tickFx(); this.show.update();
     if (this.comboT > 0) this.comboT--; else { this.maxCombo = Math.max(this.maxCombo, this.combo); this.combo = 0; }
     if (p.alive) this.frame++;
-    if (this.stageClear) { this.clearT++; if (this.clearT > 240 && this.state === 'play') { this.state = 'clear'; this.stateT = 0; } }
+    if (this.stageClear) { // the ship blasts off (launch.js), then the result screen
+      this.clearT++;
+      if (!this.launch && p.alive && this.state === 'play') this.launch = new Launch(this);
+      if (this.launch?.done && this.state === 'play') { this.state = 'clear'; this.stateT = 0; }
+    }
     if (this.state === 'dead' && this.stateT > 120) {
       if (this.lives <= 0) { this.state = 'gameover'; this.stateT = 0; } else this.respawn();
     }
@@ -3509,7 +3647,7 @@ class Game {
   continueGame() {
     const cps = this.stageDef.checkpoints || [0];
     this.frame = Math.max(...cps.filter((f) => f <= this.frame)); this.lastTableF = -1;
-    this.enemies.clear(); this.bullets.clear(); this.boss = null; this.stageClear = false; this.battle = true; this.bossDead = false;
+    this.enemies.clear(); this.bullets.clear(); this.boss = null; this.stageClear = false; this.battle = true; this.bossDead = false; this.launch = null;
     this.stageDef.onContinue?.(this);
     Object.assign(this.p, newPlayer(), { inv: 240 });
     this.charger.refill();
@@ -3541,8 +3679,8 @@ class Game {
     p.x = Math.max(16, Math.min(W - 16, p.x + vx)); p.y = Math.max(40, Math.min(H - 16, p.y + vy));
     p.cx = p.x; p.cy = p.y; p.wx = 0;
     const tb = Math.max(-10, Math.min(10, -vx * 2.5)); p.bank += Math.sign(tb - p.bank) * Math.min(1.5, Math.abs(tb - p.bank));
-    if (this.stageClear) p.y -= Math.min(8, this.clearT * 0.08); // flies off at the end
-    if (this.t % 2 === 0 && p.alive) this.sparks.push({ x: p.x + vrand(-2, 2), y: p.y + 56, vx: 0, vy: 3, life: 14, max: 14, spr: SPR.sparkBlue, scale: 0.18 });
+    if (this.launch) this.launch.update(); // stage clear: the launch moves the ship
+    else if (this.t % 2 === 0 && p.alive) this.sparks.push({ x: p.x + vrand(-2, 2), y: p.y + 56, vx: 0, vy: 3, life: 14, max: 14, spr: SPR.sparkBlue, scale: 0.18 });
     if (p.life < 0 && p.alive) this.killPlayer();
     p.life = Math.max(0, Math.min(255, p.life));
   }
@@ -3703,6 +3841,7 @@ class Game {
 
   drawPlayer(ctx) {
     const p = this.p;
+    if (this.launch) { this.launch.draw(ctx, ready(SHIP) ? SHIP : null, ready(SHIP_SH) ? SHIP_SH : null, this.charger.color?.() || '#58a8ff'); return; }
     if (!p.alive || !ready(SHIP)) return;
     const cx = p.x, cy = p.y + 8, s = 0.38, bk = p.bank / 10, sq = 1 - Math.abs(bk) * 0.15;
     const blink = p.inv > 0 && this.t % 8 < 4;
