@@ -664,6 +664,352 @@ function buildIceArt(IMG) {
 return { buildIceArt };
 })();
 
+__M['./art_thunder.js'] = (function () {
+// かみなり星 art (painting kit of rig.js): spark ピリリ, dragonfly カミナリトンボ, cloud ゴロゴロ雲, urchin でんきウニ (armoured),
+// mid-boss ゴロゴロダイコ (drum, drumS), boss サンダーイール (eelHead, eelJaw, eelSeg, eelTail), the planet, the storm clouds.
+const { addArt, eye, leg, shade, trace } = __M['./rig.js'];
+const C = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const bolt = (x, pts, color = '#fff6a0', w = 3) => {
+  x.save(); x.shadowColor = '#ff0'; x.shadowBlur = 10; x.strokeStyle = color; x.lineWidth = w; x.lineJoin = 'round';
+  x.beginPath(); pts.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.stroke(); x.restore();
+};
+const darkEye = (x, cx, cy, r) => {
+  x.fillStyle = '#1a1400'; x.beginPath(); x.ellipse(cx, cy, r * 0.8, r, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(cx - r * 0.25, cy - r * 0.35, r * 0.3, 0, Math.PI * 2); x.fill();
+};
+
+function spark() { // a little ball of lightning
+  const c = C(56, 56), x = c.getContext('2d');
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; bolt(x, [[28 + Math.cos(a) * 12, 28 + Math.sin(a) * 12], [28 + Math.cos(a + 0.3) * 20, 28 + Math.sin(a + 0.3) * 20], [28 + Math.cos(a) * 26, 28 + Math.sin(a) * 26]], '#fff6a0', 2); }
+  shade(x, { ellipse: [28, 28, 15, 15] }, '#ffe020', '#ffffe0', '#a06000', { outline: '#3a2a00' });
+  darkEye(x, 23, 30, 3); darkEye(x, 33, 30, 3);
+  return c;
+}
+function tonbo(f) { // thunder dragonfly
+  const c = C(96, 80), x = c.getContext('2d'), w = f ? 1 : 0.8;
+  x.save(); x.globalAlpha = 0.6;
+  for (const s of [-1, 1]) for (const dy of [22, 36]) { x.fillStyle = '#e8ffa0'; x.strokeStyle = '#a0c020'; x.lineWidth = 2; x.beginPath(); x.ellipse(48 + s * 24 * w, dy, 24 * w, 7, s * (dy < 30 ? -0.2 : 0.2), 0, Math.PI * 2); x.fill(); x.stroke(); }
+  x.restore();
+  shade(x, [[48, 4], [56, 18], [54, 40], [50, 76], [46, 76], [42, 40], [40, 18]], '#4a7a10', '#d8ff80', '#142a00', { outline: '#0a1400' });
+  for (let i = 0; i < 4; i++) { x.fillStyle = '#ffe020'; x.fillRect(44, 44 + i * 8, 8, 3); }
+  eye(x, 42, 14, 5, '#ffe020'); eye(x, 54, 14, 5, '#ffe020');
+  return c;
+}
+function cloudE() { // a dark storm cloud with angry eyes
+  const c = C(120, 80), x = c.getContext('2d');
+  shade(x, [[20, 56], [10, 36], [30, 18], [54, 10], [80, 14], [104, 28], [112, 50], [96, 66], [60, 70], [34, 68]], '#4a4a6a', '#a8a8c8', '#14142a', { outline: '#0a0a18', gloss: false });
+  eye(x, 46, 40, 7, '#ffe020'); eye(x, 74, 40, 7, '#ffe020');
+  x.fillStyle = '#0a0a18'; for (const s of [-1, 1]) { x.beginPath(); x.moveTo(60 + s * 4, 30); x.lineTo(60 + s * 24, 22); x.lineTo(60 + s * 22, 30); x.closePath(); x.fill(); }
+  bolt(x, [[50, 66], [44, 74], [52, 74], [46, 80]]); bolt(x, [[72, 66], [78, 74], [70, 74], [76, 80]]);
+  return c;
+}
+function urchin() { // armoured, metal spikes with glowing tips
+  const c = C(110, 110), x = c.getContext('2d');
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; shade(x, [[55 + Math.cos(a - 0.18) * 30, 55 + Math.sin(a - 0.18) * 30], [55 + Math.cos(a) * 52, 55 + Math.sin(a) * 52], [55 + Math.cos(a + 0.18) * 30, 55 + Math.sin(a + 0.18) * 30]], '#6a7080', '#e0e8f0', '#1a1e28', { gloss: false, lw: 2 }); }
+  shade(x, { ellipse: [55, 55, 34, 34] }, '#5a6278', '#d8e0f0', '#14181f', { rim: 'rgba(220,255,160,0.7)' });
+  x.save(); x.strokeStyle = 'rgba(20,24,32,0.8)'; x.lineWidth = 2; for (const r of [14, 24]) { x.beginPath(); x.arc(55, 55, r, 0, Math.PI * 2); x.stroke(); } x.restore();
+  eye(x, 55, 58, 9, '#c8ff40');
+  return c;
+}
+// ---- mid-boss ゴロゴロダイコ (a thunder drum ring)
+function drum() {
+  const c = C(260, 200), x = c.getContext('2d');
+  shade(x, { ellipse: [130, 100, 120, 86] }, '#8a2a1a', '#e08a60', '#2a0804', { lw: 5, rim: 'rgba(255,220,160,0.6)' });
+  shade(x, { ellipse: [130, 92, 96, 64] }, '#e8d8b0', '#ffffff', '#8a7a50', { lw: 4 }); // drum skin
+  x.fillStyle = '#ffd040'; for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8; x.beginPath(); x.arc(130 + Math.cos(a) * 110, 100 + Math.sin(a) * 78, 5, 0, Math.PI * 2); x.fill(); } // studs
+  x.save(); trace(x, { ellipse: [130, 92, 96, 64] }); x.clip(); x.fillStyle = 'rgba(30,20,0,0.25)'; x.beginPath(); x.ellipse(130, 100, 50, 30, 0, 0, Math.PI * 2); x.fill(); x.restore();
+  eye(x, 100, 96, 12, '#ffe020'); eye(x, 160, 96, 12, '#ffe020');
+  x.strokeStyle = '#3a2a10'; x.lineWidth = 4; x.beginPath(); x.moveTo(108, 128); x.quadraticCurveTo(130, 118, 152, 128); x.stroke();
+  return c;
+}
+function drumS() { // small armoured side drum
+  const c = C(80, 80), x = c.getContext('2d');
+  shade(x, { ellipse: [40, 40, 36, 34] }, '#5a6070', '#d8e0f0', '#14181f', { rim: 'rgba(220,255,160,0.7)' });
+  shade(x, { ellipse: [40, 36, 26, 22] }, '#c8c0a0', '#ffffff', '#6a6040', { gloss: false });
+  bolt(x, [[30, 26], [42, 38], [34, 40], [48, 52]], '#c8ff40', 4);
+  return c;
+}
+// ---- boss サンダーイール
+function eelHead() {
+  const c = C(150, 150), x = c.getContext('2d');
+  for (const s of [-1, 1]) shade(x, [[75 + s * 30, 40], [75 + s * 66, 30], [75 + s * 50, 62]], '#c8ff40', '#ffffe0', '#4a6a00', { gloss: false, lw: 2 }); // fins
+  const h = [[75, 10], [112, 30], [124, 70], [108, 118], [75, 140], [42, 118], [26, 70], [38, 30]];
+  shade(x, h, '#1a3a6a', '#7ab0ff', '#060e20', { rim: 'rgba(200,255,120,0.7)', lw: 4 });
+  x.save(); trace(x, h); x.clip(); for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(200,255,64,0.8)'; x.beginPath(); x.arc(52 + (i % 2) * 46, 40 + Math.floor(i / 2) * 22, 4, 0, Math.PI * 2); x.fill(); } x.restore();
+  eye(x, 54, 92, 9, '#ffe020', [0, 0.5]); eye(x, 96, 92, 9, '#ffe020', [0, 0.5]);
+  return c;
+}
+function eelJaw() {
+  const c = C(90, 60), x = c.getContext('2d');
+  shade(x, [[12, 6], [45, 2], [78, 6], [70, 36], [45, 56], [20, 36]], '#14305a', '#5a90e0', '#040a18', { lw: 3, gloss: false });
+  x.fillStyle = '#fff'; for (const fx of [22, 34, 56, 68]) { x.beginPath(); x.moveTo(fx - 3, 6); x.lineTo(fx, 16); x.lineTo(fx + 3, 6); x.fill(); }
+  return c;
+}
+function eelSeg() {
+  const c = C(90, 90), x = c.getContext('2d');
+  shade(x, { ellipse: [45, 45, 34, 30] }, '#1a3a6a', '#7ab0ff', '#060e20', { rim: 'rgba(200,255,120,0.6)' });
+  x.save(); x.shadowColor = '#cf4'; x.shadowBlur = 10; x.fillStyle = '#e8ff80'; x.beginPath(); x.ellipse(45, 45, 8, 14, 0, 0, Math.PI * 2); x.fill(); x.restore();
+  for (const s of [-1, 1]) shade(x, [[45 + s * 26, 34], [45 + s * 44, 30], [45 + s * 32, 52]], '#c8ff40', '#ffffe0', '#4a6a00', { gloss: false, lw: 2 });
+  return c;
+}
+function eelTail() {
+  const c = C(70, 90), x = c.getContext('2d');
+  shade(x, [[35, 86], [62, 50], [50, 8], [35, 2], [20, 8], [8, 50]], '#c8ff40', '#ffffe0', '#4a6a00', { lw: 3, gloss: false });
+  return c;
+}
+// ---- the planet and the storm
+function planet() { // a gas giant with storm bands
+  const c = C(512, 512), x = c.getContext('2d'), m = 256, R = 240;
+  x.save(); x.beginPath(); x.arc(m, m, R, 0, Math.PI * 2); x.clip();
+  x.fillStyle = '#3a2a6a'; x.fillRect(0, 0, 512, 512);
+  const bands = ['#5a3a8a', '#8a6ac0', '#4a2a7a', '#b0a0e0', '#6a4aa0', '#3a2a6a', '#9a80d0'];
+  bands.forEach((col, i) => { x.fillStyle = col; x.beginPath(); x.ellipse(m, 40 + i * 70, 300, 26 + (i % 3) * 8, -0.15, 0, Math.PI * 2); x.fill(); });
+  x.fillStyle = '#e8e0ff'; x.beginPath(); x.ellipse(330, 300, 46, 24, -0.15, 0, Math.PI * 2); x.fill(); // big storm eye
+  bolt(x, [[140, 150], [170, 190], [150, 200], [190, 250]], '#fff6a0', 4); bolt(x, [[360, 120], [340, 160], [370, 170], [350, 210]], '#fff6a0', 3);
+  const sh = x.createRadialGradient(m - 110, m - 110, 100, m, m, 290); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,20,0.6)');
+  x.fillStyle = sh; x.fillRect(0, 0, 512, 512);
+  x.restore();
+  x.save(); x.shadowColor = '#c8f'; x.shadowBlur = 30; x.strokeStyle = 'rgba(220,200,255,0.8)'; x.lineWidth = 5; x.beginPath(); x.arc(m, m, R + 2, 0, Math.PI * 2); x.stroke(); x.restore();
+  return c;
+}
+function stormTile() { // 640 x 640 of thunder clouds seen from above
+  const c = C(640, 640), x = c.getContext('2d');
+  x.fillStyle = '#1a1430'; x.fillRect(0, 0, 640, 640);
+  let s = 17; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 220; i++) {
+    const px = rnd() * 640, py = rnd() * 640, r = 24 + rnd() * 70, l = 16 + rnd() * 22;
+    const g = x.createRadialGradient(px - r * 0.3, py - r * 0.4, 0, px, py, r); g.addColorStop(0, `hsl(${255 + rnd() * 20},28%,${l}%)`); g.addColorStop(1, 'rgba(26,20,48,0)');
+    x.fillStyle = g; for (const oy of [-640, 0, 640]) { x.beginPath(); x.arc(px, py + oy, r, 0, Math.PI * 2); x.fill(); }
+  }
+  return c;
+}
+
+function buildThunderArt(IMG) {
+  if (typeof document === 'undefined') return;
+  const A = (n, c) => addArt(IMG, n, c);
+  A('spark', spark()); A('tonbo0', tonbo(0)); A('tonbo1', tonbo(1)); A('cloudE', cloudE()); A('urchin', urchin());
+  A('drum', drum()); A('drumS', drumS());
+  A('eelHead', eelHead()); A('eelJaw', eelJaw()); A('eelSeg', eelSeg()); A('eelTail', eelTail());
+  A('thunderPlanet', planet()); A('stormTile', stormTile());
+}
+
+return { buildThunderArt };
+})();
+
+__M['./art_junk.js'] = (function () {
+// ジャンク要さい art (painting kit of rig.js): drone, saw ノコギリ, turret ほうだい, junk block 鉄くず (armoured), press,
+// mid-boss クレーンロボ (crane, craneArm), boss ジャンクゴーレム (jgCore, jgPart0..3, jgHead), the fortress, the metal floor.
+const { addArt, eye, shade, trace } = __M['./rig.js'];
+const C = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const STEEL = ['#7a8090', '#e0e6f0', '#1a1e26'], RUST = ['#9a5a30', '#e8a878', '#2a1408'], YEL = ['#e0b020', '#fff0a0', '#5a4000'];
+const rivets = (x, pts, r = 2.5, col = '#d8dce4') => { x.fillStyle = col; for (const [a, b] of pts) { x.beginPath(); x.arc(a, b, r, 0, Math.PI * 2); x.fill(); } };
+const stripes = (x, path, color = '#1a1400') => { // hazard stripes inside a shape
+  x.save(); trace(x, path); x.clip(); x.strokeStyle = color; x.lineWidth = 6;
+  for (let i = -200; i < 400; i += 18) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 200, 200); x.stroke(); }
+  x.restore();
+};
+
+function drone() {
+  const c = C(56, 56), x = c.getContext('2d');
+  for (const s of [-1, 1]) shade(x, { ellipse: [28 + s * 18, 22, 10, 4] }, '#5a6070', '#c0c8d8', '#141820', { gloss: false, lw: 1.5 }); // rotors
+  shade(x, [[28, 12], [42, 22], [40, 38], [28, 46], [16, 38], [14, 22]], ...YEL, { outline: '#1a1400' });
+  eye(x, 28, 32, 6, '#ff4020');
+  return c;
+}
+function saw() {
+  const c = C(80, 80), x = c.getContext('2d'), pts = [];
+  for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, r = i % 2 ? 30 : 38; pts.push([40 + Math.cos(a) * r, 40 + Math.sin(a) * r]); }
+  x.save(); x.beginPath(); pts.forEach(([a, b], i) => x[i ? 'lineTo' : 'moveTo'](a, b)); x.closePath(); x.fillStyle = '#c8ccd4'; x.fill(); x.strokeStyle = '#1a1e26'; x.lineWidth = 3; x.stroke(); x.restore();
+  shade(x, { ellipse: [40, 40, 22, 22] }, ...STEEL, { gloss: true });
+  shade(x, { ellipse: [40, 40, 9, 9] }, ...RUST, { gloss: false, lw: 2 });
+  eye(x, 40, 40, 5, '#ff4020');
+  return c;
+}
+function turret() {
+  const c = C(80, 80), x = c.getContext('2d');
+  shade(x, [[8, 20], [72, 20], [76, 64], [4, 64]], ...STEEL, { gloss: false });
+  stripes(x, [[8, 56], [72, 56], [76, 64], [4, 64]], '#e0b020');
+  shade(x, { ellipse: [40, 40, 20, 18] }, ...RUST);
+  rivets(x, [[14, 28], [66, 28], [14, 50], [66, 50]]);
+  return c;
+}
+function turretGun() {
+  const c = C(24, 48), x = c.getContext('2d');
+  shade(x, [[6, 2], [18, 2], [16, 46], [8, 46]], '#4a505a', '#c0c8d0', '#101418', { gloss: false, lw: 2 });
+  return c;
+}
+function junkBlock(v) { // armoured scrap block (two looks)
+  const c = C(72, 64), x = c.getContext('2d');
+  const p = [[4, 8], [68, 4], [70, 58], [6, 60]];
+  shade(x, p, ...(v ? RUST : STEEL), { gloss: false, rim: 'rgba(255,240,200,0.5)' });
+  x.save(); trace(x, p); x.clip(); x.strokeStyle = 'rgba(20,16,10,0.7)'; x.lineWidth = 3;
+  x.beginPath(); x.moveTo(4, 30); x.lineTo(70, 26); x.moveTo(36, 4); x.lineTo(38, 60); x.stroke(); x.restore();
+  rivets(x, [[12, 14], [60, 12], [12, 52], [62, 50]]);
+  if (v) { x.fillStyle = 'rgba(60,30,10,0.5)'; x.beginPath(); x.ellipse(50, 42, 10, 6, 0.4, 0, Math.PI * 2); x.fill(); }
+  return c;
+}
+function press() { // a heavy piston head (falls down a column)
+  const c = C(120, 120), x = c.getContext('2d');
+  shade(x, [[44, 0], [76, 0], [76, 60], [44, 60]], '#5a606a', '#c8d0d8', '#141820', { gloss: false });
+  const head = [[6, 56], [114, 56], [114, 116], [6, 116]];
+  shade(x, head, ...STEEL, { gloss: false, lw: 4 });
+  stripes(x, [[6, 100], [114, 100], [114, 116], [6, 116]], '#e0b020');
+  rivets(x, [[18, 68], [102, 68], [18, 90], [102, 90]], 4);
+  return c;
+}
+// ---- mid-boss クレーンロボ
+function crane() {
+  const c = C(240, 180), x = c.getContext('2d');
+  const body = [[40, 20], [200, 20], [226, 90], [200, 160], [40, 160], [14, 90]];
+  shade(x, body, ...YEL, { outline: '#1a1400', lw: 5 });
+  stripes(x, [[40, 136], [200, 136], [200, 160], [40, 160]]);
+  shade(x, [[80, 50], [160, 50], [170, 110], [70, 110]], '#2a3040', '#8090a8', '#0a0e14', { gloss: true }); // cockpit window
+  eye(x, 100, 82, 11, '#ff4020'); eye(x, 140, 82, 11, '#ff4020');
+  rivets(x, [[50, 34], [190, 34], [30, 90], [210, 90], [50, 148], [190, 148]], 4, '#5a4000');
+  return c;
+}
+function craneArm() { // armoured claw arm (points down)
+  const c = C(80, 110), x = c.getContext('2d');
+  shade(x, [[30, 0], [50, 0], [50, 60], [30, 60]], ...STEEL, { gloss: false, lw: 2 });
+  shade(x, [[12, 56], [68, 56], [72, 76], [8, 76]], ...STEEL, { gloss: false });
+  for (const s of [-1, 1]) shade(x, [[40 + s * 26, 72], [40 + s * 30, 96], [40 + s * 14, 108], [40 + s * 16, 92], [40 + s * 10, 74]], ...RUST, { gloss: false, lw: 2 });
+  return c;
+}
+// ---- boss ジャンクゴーレム: a core and the junk pieces orbiting it
+function jgCore() {
+  const c = C(180, 180), x = c.getContext('2d');
+  shade(x, [[90, 6], [150, 30], [174, 90], [150, 150], [90, 174], [30, 150], [6, 90], [30, 30]], ...STEEL, { lw: 5, rim: 'rgba(255,220,120,0.6)' });
+  rivets(x, [[90, 18], [160, 90], [90, 162], [20, 90], [44, 44], [136, 44], [44, 136], [136, 136]], 4);
+  shade(x, { ellipse: [90, 90, 46, 46] }, '#3a1a0a', '#a0603a', '#0a0402', { gloss: false });
+  return c;
+}
+function jgHead() {
+  const c = C(120, 90), x = c.getContext('2d');
+  shade(x, [[20, 10], [100, 10], [114, 60], [96, 84], [24, 84], [6, 60]], ...RUST, { lw: 4 });
+  x.fillStyle = '#140804'; x.fillRect(22, 34, 76, 22);
+  eye(x, 42, 45, 9, '#ffc040'); eye(x, 78, 45, 9, '#ffc040');
+  rivets(x, [[18, 20], [102, 20]], 4);
+  return c;
+}
+function jgPart(k) { // four kinds of junk: a crate, a tyre, a pipe bundle, a fridge-like box
+  const c = C(80, 80), x = c.getContext('2d');
+  if (k === 0) { shade(x, [[8, 12], [72, 8], [74, 70], [6, 72]], ...RUST, { gloss: false }); x.strokeStyle = 'rgba(30,14,4,0.8)'; x.lineWidth = 4; x.beginPath(); x.moveTo(8, 12); x.lineTo(74, 70); x.moveTo(72, 8); x.lineTo(6, 72); x.stroke(); }
+  if (k === 1) { shade(x, { ellipse: [40, 40, 34, 34] }, '#3a3a40', '#9a9aa8', '#0a0a10'); shade(x, { ellipse: [40, 40, 14, 14] }, ...STEEL, { gloss: false }); }
+  if (k === 2) for (let i = 0; i < 3; i++) shade(x, [[10, 14 + i * 20], [70, 14 + i * 20], [70, 28 + i * 20], [10, 28 + i * 20]], ...(i % 2 ? STEEL : YEL), { gloss: false, lw: 2 });
+  if (k === 3) { shade(x, [[14, 4], [66, 4], [68, 76], [12, 76]], '#d8dce4', '#ffffff', '#5a6070', { gloss: false }); x.fillStyle = '#5a6070'; x.fillRect(56, 20, 4, 16); x.fillRect(56, 46, 4, 16); x.strokeStyle = '#5a6070'; x.lineWidth = 2; x.beginPath(); x.moveTo(12, 40); x.lineTo(68, 40); x.stroke(); }
+  return c;
+}
+// ---- the fortress and its floor
+function fortress() { // a planet-sized ball of scrap (512 px)
+  const c = C(512, 512), x = c.getContext('2d'), m = 256, R = 240;
+  x.save(); x.beginPath(); x.arc(m, m, R, 0, Math.PI * 2); x.clip();
+  x.fillStyle = '#3a3a44'; x.fillRect(0, 0, 512, 512);
+  let s = 23; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 90; i++) { const w = 20 + rnd() * 70, h = 14 + rnd() * 50, px = rnd() * 512, py = rnd() * 512; x.save(); x.translate(px, py); x.rotate(rnd() * 3); const l = 25 + rnd() * 35; x.fillStyle = rnd() < 0.3 ? `hsl(25,45%,${l}%)` : `hsl(220,8%,${l}%)`; x.fillRect(-w / 2, -h / 2, w, h); x.strokeStyle = 'rgba(0,0,0,0.5)'; x.strokeRect(-w / 2, -h / 2, w, h); x.restore(); }
+  x.fillStyle = '#ffc040'; for (let i = 0; i < 40; i++) { x.globalAlpha = 0.5 + rnd() * 0.5; x.fillRect(rnd() * 512, rnd() * 512, 3, 3); } x.globalAlpha = 1; // lights
+  const sh = x.createRadialGradient(m - 110, m - 110, 100, m, m, 290); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.65)');
+  x.fillStyle = sh; x.fillRect(0, 0, 512, 512);
+  x.restore();
+  return c;
+}
+function floorTile() { // 640 x 640 metal deck: plates, rivets, pipes, hazard stripes, lights
+  const c = C(640, 640), x = c.getContext('2d');
+  x.fillStyle = '#2a2c34'; x.fillRect(0, 0, 640, 640);
+  for (let yy = 0; yy < 640; yy += 80) for (let xx = 0; xx < 640; xx += 80) {
+    const l = 16 + ((xx * 7 + yy * 13) % 9);
+    x.fillStyle = `hsl(222,8%,${l}%)`; x.fillRect(xx + 2, yy + 2, 76, 76);
+    x.fillStyle = 'rgba(255,255,255,0.08)'; x.fillRect(xx + 2, yy + 2, 76, 3);
+    rivets(x, [[xx + 8, yy + 8], [xx + 72, yy + 8], [xx + 8, yy + 72], [xx + 72, yy + 72]], 2, 'rgba(200,210,220,0.5)');
+  }
+  for (const px of [120, 520]) { // pipes along the deck
+    const g = x.createLinearGradient(px - 14, 0, px + 14, 0); g.addColorStop(0, '#3a2010'); g.addColorStop(0.4, '#c07040'); g.addColorStop(1, '#2a1408');
+    x.fillStyle = g; x.fillRect(px - 14, 0, 28, 640);
+    x.fillStyle = '#1a0c04'; for (let yy = 40; yy < 640; yy += 160) x.fillRect(px - 16, yy, 32, 10);
+  }
+  x.save(); x.beginPath(); x.rect(280, 0, 80, 640); x.clip(); x.fillStyle = '#e0b020'; x.fillRect(280, 0, 80, 640); x.strokeStyle = '#1a1400'; x.lineWidth = 14;
+  for (let i = -80; i < 720; i += 40) { x.beginPath(); x.moveTo(270, i); x.lineTo(370, i + 100); x.stroke(); } x.restore();
+  x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(280, 0, 80, 640);
+  for (let yy = 30; yy < 640; yy += 120) { x.save(); x.shadowColor = '#f80'; x.shadowBlur = 12; x.fillStyle = '#ffb040'; x.fillRect(200, yy, 8, 8); x.fillRect(432, yy + 60, 8, 8); x.restore(); }
+  return c;
+}
+
+function buildJunkArt(IMG) {
+  if (typeof document === 'undefined') return;
+  const A = (n, c) => addArt(IMG, n, c);
+  A('drone', drone()); A('saw', saw()); A('turret', turret()); A('turretGun', turretGun()); A('junk0', junkBlock(0)); A('junk1', junkBlock(1)); A('press', press());
+  A('crane', crane()); A('craneArm', craneArm());
+  A('jgCore', jgCore()); A('jgHead', jgHead()); for (let k = 0; k < 4; k++) A('jgPart' + k, jgPart(k));
+  A('fortress', fortress()); A('floorTile', floorTile());
+}
+
+return { buildJunkArt };
+})();
+
+__M['./art_final.js'] = (function () {
+// マザー art (painting kit of rig.js): the body (a living mother ship), four armour petals (red / blue / green / gold:
+// one per form), the eye and its lid, and the organic wall tile of the inside of the ship.
+const { addArt, shade, trace } = __M['./rig.js'];
+const C = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const PETAL = [['#c03020', '#ff9a70', '#3a0604'], ['#2a7ad0', '#c8f0ff', '#06204a'], ['#3a9a30', '#c8ff90', '#0a2a06'], ['#c09020', '#fff0a0', '#3a2a00']];
+
+function body() { // a fleshy armoured disc with veins
+  const c = C(340, 300), x = c.getContext('2d');
+  const p = [[170, 8], [262, 36], [324, 120], [312, 210], [250, 280], [170, 294], [90, 280], [28, 210], [16, 120], [78, 36]];
+  shade(x, p, '#6a2a5a', '#e0a0d0', '#1a0418', { lw: 6, rim: 'rgba(255,190,240,0.6)' });
+  x.save(); trace(x, p); x.clip(); x.strokeStyle = 'rgba(255,80,180,0.5)'; x.lineWidth = 4; x.shadowColor = '#f4c'; x.shadowBlur = 8;
+  let s = 31; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; x.beginPath(); x.moveTo(170 + Math.cos(a) * 60, 150 + Math.sin(a) * 50); x.quadraticCurveTo(170 + Math.cos(a + 0.3) * (100 + rnd() * 40), 150 + Math.sin(a + 0.3) * 90, 170 + Math.cos(a) * 160, 150 + Math.sin(a) * 140); x.stroke(); }
+  x.restore();
+  shade(x, { ellipse: [170, 150, 62, 56] }, '#2a0820', '#8a3a70', '#0a0008', { gloss: false, lw: 4 }); // eye socket
+  return c;
+}
+function petal(k) { // one armour petal (left side; mirrored for the right)
+  const c = C(140, 180), x = c.getContext('2d'), [b, l, d] = PETAL[k];
+  const p = [[130, 20], [100, 6], [40, 30], [8, 100], [30, 160], [90, 172], [120, 130], [110, 80]];
+  shade(x, p, b, l, d, { lw: 4, rim: 'rgba(255,255,255,0.7)' });
+  x.save(); trace(x, p); x.clip(); x.strokeStyle = 'rgba(0,0,0,0.35)'; x.lineWidth = 3;
+  for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(130, 20 + i * 10); x.quadraticCurveTo(60 - i * 6, 60 + i * 20, 40 + i * 14, 168); x.stroke(); }
+  x.restore();
+  return c;
+}
+function eyeBall() {
+  const c = C(120, 120), x = c.getContext('2d');
+  const g = x.createRadialGradient(46, 44, 4, 60, 60, 56); g.addColorStop(0, '#ffffff'); g.addColorStop(0.7, '#f0d8e8'); g.addColorStop(1, '#8a5a7a');
+  x.fillStyle = g; x.beginPath(); x.arc(60, 60, 54, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = 'rgba(200,40,80,0.5)'; x.lineWidth = 2; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; x.beginPath(); x.moveTo(60 + Math.cos(a) * 52, 60 + Math.sin(a) * 52); x.quadraticCurveTo(60 + Math.cos(a + 0.2) * 40, 60 + Math.sin(a + 0.2) * 40, 60 + Math.cos(a) * 30, 60 + Math.sin(a) * 30); x.stroke(); }
+  return c;
+}
+function lid() { // the closed eyelid (armoured)
+  const c = C(130, 120), x = c.getContext('2d');
+  shade(x, { ellipse: [65, 60, 60, 56] }, '#4a1a40', '#c080b0', '#140010', { lw: 4 });
+  x.strokeStyle = '#140010'; x.lineWidth = 5; x.beginPath(); x.moveTo(10, 60); x.quadraticCurveTo(65, 80, 120, 60); x.stroke();
+  return c;
+}
+function wallTile() { // 640 x 640 inside the mother ship: dark flesh, ribs, glowing veins
+  const c = C(640, 640), x = c.getContext('2d');
+  x.fillStyle = '#1a0614'; x.fillRect(0, 0, 640, 640);
+  let s = 41; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < 160; i++) { const px = rnd() * 640, py = rnd() * 640, r = 20 + rnd() * 60, l = 10 + rnd() * 14; const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, `hsl(320,40%,${l}%)`); g.addColorStop(1, 'rgba(26,6,20,0)'); x.fillStyle = g; for (const oy of [-640, 0, 640]) { x.beginPath(); x.arc(px, py + oy, r, 0, Math.PI * 2); x.fill(); } }
+  for (const side of [0, 1]) for (let yy = 0; yy < 640; yy += 80) { // ribs along both sides
+    x.save(); x.translate(side ? 640 : 0, yy); x.scale(side ? -1 : 1, 1);
+    const g = x.createLinearGradient(0, 0, 120, 0); g.addColorStop(0, '#5a2a4a'); g.addColorStop(1, 'rgba(90,42,74,0)');
+    x.fillStyle = g; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(110, 20, 130, 50); x.quadraticCurveTo(90, 40, 0, 40); x.fill(); x.restore();
+  }
+  x.strokeStyle = 'rgba(255,60,170,0.45)'; x.lineWidth = 3; x.shadowColor = '#f4c'; x.shadowBlur = 10;
+  for (let i = 0; i < 8; i++) { x.beginPath(); let px = rnd() * 640, py = 0; x.moveTo(px, py); while (py < 640) { px += (rnd() - 0.5) * 60; py += 40; x.lineTo(px, py); } x.stroke(); }
+  return c;
+}
+
+function buildFinalArt(IMG) {
+  if (typeof document === 'undefined') return;
+  const A = (n, c) => addArt(IMG, n, c);
+  A('mzBody', body()); for (let k = 0; k < 4; k++) A('mzPetal' + k, petal(k)); A('mzEye', eyeBall()); A('mzLid', lid());
+  A('mzWall', wallTile());
+}
+
+return { PETAL, buildFinalArt };
+})();
+
 __M['./assets.js'] = (function () {
 // Images: no material of the original game is used any more. Every sprite below is built in gfx.js from CC0
 // textures (Kenney Particle Pack) or drawn in code; ships / backgrounds are loaded through free.js.
@@ -671,11 +1017,14 @@ const { loadFx } = __M['./gfx.js'];
 const { buildRig } = __M['./rig.js'];
 const { buildMagmaArt } = __M['./art_magma.js'];
 const { buildIceArt } = __M['./art_ice.js'];
+const { buildThunderArt } = __M['./art_thunder.js'];
+const { buildJunkArt } = __M['./art_junk.js'];
+const { buildFinalArt } = __M['./art_final.js'];
 const IMG = {};
 // the single-file build (build.mjs) embeds every asset as a data: URL in globalThis.__ASSETS
 const assetUrl = (path) => (globalThis.__ASSETS && globalThis.__ASSETS[path]) || path;
 
-const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); buildIceArt(IMG); };
+const loadImages = async (onProgress) => { await loadFx(IMG, assetUrl, onProgress); buildRig(IMG); buildMagmaArt(IMG); buildIceArt(IMG); buildThunderArt(IMG); buildJunkArt(IMG); buildFinalArt(IMG); };
 
 // [image key, sx, sy, sw, sh]
 const fx = (key, w, h = w) => [key, 0, 0, w, h];
@@ -1169,6 +1518,77 @@ const decide = () => isPressed('ok') || isPressed('shot');
 const cancel = () => isPressed('sub') || isPressed('pause');
 
 return { initInput, onAnyKey, setTouchMode, hasTouch, takeTap, takeTouchMove, padMap, pollInput, _setKeys, _forceInput, isHeld, isPressed, wasReleased, decide, cancel };
+})();
+
+__M['./autoplay.js'] = (function () {
+// Debug autoplay: a bot plays the game (F7 or ?auto in the browser; tools/bots.mjs uses the same bots headless).
+// In a stage it dodges bullets / enemies / lava geysers / lightning, sits under a target and picks the tool:
+// beam Lv2 for armour, the boss's weakness weapon when it owns it, MEGA saved for the boss's open weak point.
+// On menus it presses "ok" every 40 frames, so with ?auto the whole game runs by itself (tutorial -> 4 planets ->
+// final -> ending -> title). Combine with ?debug (invincible) and ?x2 (double speed).
+const auto = { on: false };
+
+const onScreen = (e) => e.cy > 0 && e.cy < 470 && e.cx > 0 && e.cx < 640;
+const nearestX = (g, f = () => true) => { let best = null; for (const e of g.enemies) if (onScreen(e) && f(e) && !e.noTarget && (!best || e.cy > best.cy)) best = e; return best?.cx; };
+
+// shared movement: dodge the nearest bullets, enemies and stage hazards; otherwise sit under a target
+function steer(g, tx) {
+  const px = g.px, py = g.py, held = {};
+  let dx = 0, dy = 0;
+  for (const b of g.bullets.list) {
+    const ex = px - b.cx, ey = py - b.cy, d = Math.hypot(ex, ey) || 1;
+    if (d < 70) { dx += ex / d * (70 - d); dy += ey / d * (70 - d); }
+  }
+  for (const e of g.enemies) {
+    if (e.dmg?.body === 0) continue;
+    const ex = px - e.cx, ey = py - e.cy, d = Math.hypot(ex, ey) || 1;
+    if (d < e.r + 60) { dx += ex / d * 60; dy += ey / d * 60; }
+    if (e.parts) for (const pt of e.parts()) { const qx = px - pt.x, qy = py - pt.y, q = Math.hypot(qx, qy) || 1; if (pt.on && q < pt.r + 50) { dx += qx / q * 50; dy += qy / q * 50; } }
+  }
+  for (const s of g.hazards || []) if (s.danger?.(px, py)) dx += (px < s.x ? -1 : 1) * 90;          // generic stage hazards
+  for (const s of g.geysers || []) if (s.t > 15 && s.t < 150 && Math.abs(px - s.x) < 60) dx += (px < s.x ? -1 : 1) * 90; // lava
+  if (g.boss?.lane != null && (g.boss.cs === 'aim' || g.boss.cs === 'dash') && Math.abs(px - g.boss.lane) < 90) dx += (px < g.boss.lane ? -1 : 1) * 90;
+  if (Math.hypot(dx, dy) > 8) { held.left = dx < -4; held.right = dx > 4; held.up = dy < -4; held.down = dy > 4; return held; }
+  if (tx != null) { held.left = tx < px - 12; held.right = tx > px + 12; }
+  held.up = py > 400; held.down = py < 330;
+  return held;
+}
+
+const BOTS = {
+  // holds to Lv3 and releases, over and over; fires MEGA the moment it is ready
+  lv3spam: (g) => ({ ...steer(g, nearestX(g)), shot: (g.t % 120) < 112, sub: g.mega.ready }),
+  // never charges; MEGA the moment it is ready
+  autofire: (g) => ({ ...steer(g, nearestX(g)), sub: g.mega.ready }),
+  // picks the tool (see the top)
+  smart: (g, s) => {
+    const sniperUp = [...g.enemies].some((e) => e.type === 33 && onScreen(e));
+    const armored = [...g.enemies].find((e) => e.armor && onScreen(e) && !e.gone);
+    const boss = g.boss && !g.bossDead ? g.boss : null;
+    let tx = nearestX(g, (e) => e.type === 33) ?? (armored ? armored.cx : nearestX(g));
+    if (boss) tx = boss.cx;
+    const h = steer(g, tx);
+    // weapon: the boss's weakness during a boss fight (while it has energy), the beam otherwise
+    const ch = g.charger, weak = boss?.weakTo;
+    const want = weak && ch.weapons.includes(weak) && (ch.energy[weak] ?? 0) >= 4 ? weak : 'beam';
+    if (ch.weapon !== want && !ch.charging && g.t % 8 === 0) h.mode = true;
+    // charge to Lv2 for armour, the open boss, or the weakness weapon; otherwise auto fire
+    const wantCharge = !sniperUp && (armored || (boss && (boss.open || ch.weapon === weak)));
+    if (wantCharge) { s.c = (s.c || 0) + 1; h.shot = s.c < 62; if (s.c >= 64) s.c = 0; } else s.c = 0;
+    h.sub = (boss && boss.open && g.mega.power >= 16) || (!boss && g.mega.power >= 40);
+    return h;
+  },
+};
+
+// one autoplay step for the browser: returns the held buttons for this frame
+const st = { s: {}, t: 0 };
+function autoStep(scene) {
+  st.t++;
+  const g = scene?.game;
+  if (g && !scene.pause && !scene.cont && g.state === 'play') return BOTS.smart(g, st.s);
+  return st.t % 40 === 0 ? { ok: true } : {}; // menus, results, continue
+}
+
+return { auto, steer, BOTS, autoStep };
 })();
 
 __M['./save.js'] = (function () {
@@ -3286,6 +3706,176 @@ const stageM1 = {
 return { stageM1 };
 })();
 
+__M['./stagekit.js'] = (function () {
+// Shared pieces of the planet stages (かみなり星, ジャンク要さい, マザー): the wave table, tiled backgrounds, the planet
+// approach, the "two armoured parts guard the body" mid-boss and the common boss phases / death.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { ready } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { mk, sync } = __M['./monsters.js'];
+const { debug } = __M['./save.js'];
+const hintAt = (text) => (g) => g.kid.pop(text, 320, 400, '#fff', 'hint');
+
+// waves: [[frame, fn(g, X)]]. opt.pre(g) runs every frame; while the mid-boss is up the clock waits in (hold0, hold1)
+function makeTable(waves, { pre, hold = [2930, 3040], bgm } = {}) {
+  const TABLE = new Map();
+  for (const [f, fn] of waves) TABLE.set(f, [...(TABLE.get(f) || []), fn]);
+  return (g, f) => {
+    pre?.(g, f);
+    if (g.mid && !g.midDone && f > hold[0] && f < hold[1]) { g.frame--; return; }
+    if (g.lastTableF === f) return;
+    g.lastTableF = f;
+    if (f === 0) audio.playBgm(g.stageDef.bgm || bgm);
+    const fns = TABLE.get(f);
+    if (!fns) return;
+    const cam = g.p.camX ?? -60, X = (x) => Math.fround(Math.fround(x) - cam);
+    for (const fn of fns) fn(g, X);
+  };
+}
+
+function tileY(ctx, im, off, alpha = 1, add = false) {
+  if (!ready(im) || alpha <= 0) return;
+  const s = 640 / im.width * 0.75, w = im.width * s, h = im.height * s;
+  ctx.save(); ctx.globalAlpha = alpha; if (add) ctx.globalCompositeOperation = 'lighter';
+  const y0 = (off % h) - h;
+  for (let y = y0; y < 480; y += h) for (let x = 0; x < 640; x += w) ctx.drawImage(im, x, y, w + 1, h + 1);
+  ctx.restore();
+}
+// a 640x640 rig tile scrolling down
+function groundTile(ctx, key, sy, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  const y = (sy * 1.1) % 640;
+  draw(ctx, RIG(key), 320, y - 320); draw(ctx, RIG(key), 320, y + 320);
+  ctx.restore();
+}
+// space + a planet growing until frame `arrive`
+function approach(ctx, g, neb, stars, planetKey, arrive = 760) {
+  const f = g.frame;
+  if (f >= arrive + 60) return;
+  tileY(ctx, neb, g.scrollY * 0.4, 1); tileY(ctx, stars, g.scrollY * 1.6, 0.8, true);
+  const k = Math.min(1, f / arrive), s = 0.22 + k * k * k * 3.4;
+  draw(ctx, RIG(planetKey), 320, 150 + k * k * 380, { scale: s });
+}
+// atmosphere entry: streaks + a coloured flash around frame `arrive`
+function entry(ctx, g, rgb, arrive = 760) {
+  const f = g.frame;
+  if (f <= arrive - 140 || f >= arrive + 80) return;
+  const k = Math.max(0, 1 - Math.abs(f - arrive) / 140);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k; ctx.strokeStyle = `rgb(${rgb})`; ctx.lineWidth = 3;
+  for (let i = 0; i < 16; i++) { const x = (i * 83 + g.t * 7) % 640, yy = (i * 137 + g.t * 22) % 520 - 40; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x, yy + 60); ctx.stroke(); }
+  ctx.fillStyle = `rgba(${rgb},${k * 0.35})`; ctx.fillRect(0, 0, 640, 480); ctx.restore();
+}
+const groundAlpha = (g, arrive = 760) => Math.max(0, Math.min(1, (g.frame - arrive + 40) / 100));
+
+// ---------------------------------------------------------------- mid-boss: a body guarded by two ARMOURED parts.
+// The body takes 15% while a part is left (a barrier ring shows it). cfg:
+//   type, hp, r, partHp, partR, off: [dx, dy] of the right part, name (popped when a part breaks),
+//   body(ctx, e, g) / part(ctx, c, g) drawing, attack(g, e, partsLeft), partAttack(g, c), barrier: [rx, ry, color]
+function twinGuard(g, X, cfg) {
+  const body = mk(cfg.type, X(320), -200, { hp: cfg.hp, r: cfg.r, big: true, gems: 30, kit: true });
+  const part = (side) => mk(cfg.type + 1, 0, 0, { hp: cfg.partHp, r: cfg.partR || 24, armor: true, side, gems: 6, big: true, kit: side < 0 });
+  const parts = [part(-1), part(1)];
+  body.parts2 = parts;
+  body.weak = () => (parts.some((c) => !c.gone) ? 0.15 : 1);
+  body.update = (g, e) => {
+    e.t++;
+    if (e.y < 120) e.y += 0.9;
+    e.x += Math.sin(e.t * 0.012) * 0.8; e.x = Math.max(180, Math.min(460, e.x));
+    const left = parts.filter((c) => !c.gone).length;
+    if (e.y >= 110 && !e.dying) cfg.attack(g, e, left);
+    if (e.t > 2400) e.y -= 3;
+    if (e.hp < 0 && !e.dying) e.dying = 1;
+    if (e.dying) {
+      e.dying++;
+      if (e.dying % 6 === 0) g.explosion(e.x + (Math.random() - 0.5) * 240, e.y + (Math.random() - 0.5) * 160, 'M', false);
+      if (e.dying % 12 === 0) audio.se('enemyDown', 0.8);
+      if (e.dying === 70) { e.lastHit = e.lastHit || 'shot'; g.killEnemy(e); audio.se('bossDown', 1); g.shakeMag = Math.max(g.shakeMag, 8); g.kid.shards(e.x, e.y, 40); g.kid.pop('やっつけた!!', e.x, e.y, 'rainbow', 'big'); g.midDone = true; g.onMidbossDown?.(); }
+    }
+    if (e.y < -340 && e.t > 2400) { e.dead = true; g.midDone = true; }
+    sync(e);
+  };
+  body.draw = (ctx, e, g) => {
+    ctx.save(); if (e.dying) ctx.translate((Math.random() - 0.5) * 6, 0);
+    cfg.body(ctx, e, g);
+    for (const c of parts) if (!c.gone) cfg.part(ctx, c, g);
+    ctx.restore();
+    if (parts.some((c) => !c.gone) && !e.dying) {
+      const [rx, ry, col] = cfg.barrier || [170, 130, '#9cf'];
+      ctx.save(); ctx.globalAlpha = 0.22 + Math.sin(e.t * 0.15) * 0.08; ctx.strokeStyle = col; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(e.cx, e.cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 0.07; ctx.fillStyle = col; ctx.fill(); ctx.restore();
+    }
+  };
+  for (const c of parts) {
+    c.update = (g, c) => {
+      c.t++;
+      if (c.gone) { c.vy += 0.25; c.y += c.vy; c.x += c.side * 1.5; if (c.y > 600) c.dead = true; sync(c); return; }
+      c.x = body.x + c.side * cfg.off[0]; c.y = body.y + cfg.off[1];
+      if (body.y > 100) cfg.partAttack?.(g, c);
+      if (c.hp < 0) {
+        c.gone = true; c.vy = -2; c.armor = false; c.hp = 999;
+        g.explosion(c.x, c.y, 'M'); audio.se('bossDown', 0.8); g.shakeMag = Math.max(g.shakeMag, 5);
+        g.kid.onKill(c, 0); g.kid.pop(cfg.name + 'を こわした!', c.x, c.y - 30, '#ff4', 'big');
+        if (parts.every((k) => k.gone)) g.kid.pop('バリアが 消えた! いまだ!', 320, 400, 'rainbow', 'big');
+      }
+      if (body.dead) c.dead = true;
+      sync(c);
+    };
+    c.draw = (ctx, c, g) => { if (c.gone) cfg.part(ctx, c, g); };
+  }
+  parts.forEach((c) => g.spawn(c)); g.spawn(body);
+  return body;
+}
+
+// ---------------------------------------------------------------- bosses: shared phase changes and the death sequence
+function bossPhase(g, e) {
+  const p = e.hp > e.maxHp * 0.66 ? 1 : e.hp > e.maxHp * 0.33 ? 2 : 3;
+  if (p !== e.phase && e.hp > 0) { e.phase = p; g.kid.pop(p === 2 ? 'おこった!' : 'げきおこ!!', e.x, e.y + 110, '#f44', 'big'); audio.se('warning', 0.5); g.shakeMag = Math.max(g.shakeMag, 4); }
+  if (e.bar < 286) e.bar += 2;
+}
+// call every frame; returns true while dying. opt.onDead(g) replaces the stage clear (the final stage's rematches)
+function bossDeath(g, e, opt = {}) {
+  if (e.hp < 0 && e.cs !== 'dying') {
+    e.cs = 'dying'; e.cyc = 0; e.open = false; g.bullets.clear(); g.hazards = [];
+    if (!opt.onDead) { g.battle = false; g.bossDead = true; audio.stopBgm(); g.kid.pop('やったー!!', e.x, e.y + 120, 'rainbow', 'huge'); }
+    else g.kid.pop('たおした!', e.x, e.y + 100, 'rainbow', 'big');
+  }
+  if (e.cs !== 'dying') return false;
+  const short = !!opt.onDead;
+  if (e.cyc % 8 === 0) { g.explosion(e.x + (Math.random() - 0.5) * 200, e.y + (Math.random() - 0.5) * 200, 'M', false); audio.se('enemyDown', 0.9); }
+  g.shakeMag = Math.max(g.shakeMag, 2);
+  if (!short) { e.white = Math.min(255, e.cyc * 3); g.white = e.white; }
+  if (e.cyc === (short ? 40 : 90)) { g.kid.onKill(e, 0); audio.se('bossDown', 1); audio.lab('explode2', 1, 0.7); g.kid.shards(e.x, e.y, short ? 40 : 80); }
+  if (e.cyc > (short ? 80 : 160)) {
+    e.dead = true; g.boss = null; g.kills++;
+    if (short) opt.onDead(g); else { g.stageClear = true; g.white = 0; }
+  }
+  return true;
+}
+// the rainbow target ring on an open weak point
+function weakRing(ctx, g, x, y, r = 44) {
+  ctx.save(); ctx.strokeStyle = `hsl(${(g.t * 10) % 360},100%,60%)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, r + Math.sin(g.t * 0.3) * 6, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+}
+const glow = (ctx, spr, x, y, scale, alpha = 1, rot = 0) => draw(ctx, spr, x, y, { scale, add: true, alpha, rot });
+
+// ---------------------------------------------------------------- stage hazards (lightning, presses ...): not enemies,
+// can't be shot. Each: { x, t, update(g, h) -> false when done, draw(ctx, g, h), danger(px, py) -> bool (the bots
+// dodge it), hit(px, py) -> bool (touching costs a heart) }
+function addHazard(g, h) { h.t = 0; (g.hazards = g.hazards || []).push(h); return h; }
+function hurtShip(g, fromX) {
+  const p = g.p;
+  if (p.inv > 0 || !p.alive || debug.on || g.noDamage) return;
+  g.kid.hurtPlayer(); p.knock = 22; p.knockA = p.x < fromX ? Math.PI : 0;
+}
+function updateHazards(g) {
+  if (!g.hazards) return;
+  for (const h of g.hazards) { h.t++; if (h.update(g, h) === false) h.done = true; else if (h.hit?.(g.px, g.py)) hurtShip(g, h.x); }
+  g.hazards = g.hazards.filter((h) => !h.done);
+}
+function drawHazards(ctx, g) { for (const h of g.hazards || []) h.draw(ctx, g, h); }
+return { hintAt, makeTable, tileY, groundTile, approach, entry, groundAlpha, twinGuard, bossPhase, bossDeath, weakRing, glow, addHazard, hurtShip, updateHazards, drawHazards };
+})();
+
 __M['./stageMagma.js'] = (function () {
 // マグマ星 (gives the HAMMER; its boss マグマドラゴン is weak to the DRILL).
 //   1 とうちゃく     space: the planet grows, flame sprites fly in LINES (one hit chains the whole line)
@@ -3300,6 +3890,7 @@ const { U } = __M['./orig.js'];
 const { debug } = __M['./save.js'];
 const { freeImg, ready } = __M['./free.js'];
 const { RIG } = __M['./rig.js'];
+const { bossDeath } = __M['./stagekit.js'];
 const { aimAt, mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
 const waves = [];
 const at = (f, fn) => waves.push([f, fn]);
@@ -3529,6 +4120,7 @@ function magmaDragon(g, X) {
   let sw = 0; // swim clock (only runs while swimming, so the path is smooth)
   e.update = (g, e) => {
     e.t++; e.cyc++;
+    if (e.rematchOpt && bossDeath(g, e, e.rematchOpt)) { sync(e); return; } // the final stage's rematch: a short death
     if (e.bar < 286) e.bar += 2;
     const p = ph();
     if (p !== e.phase && e.hp > 0) { e.phase = p; g.kid.pop(p === 2 ? 'おこった!' : 'げきおこ!!', e.x, e.y + 100, '#f44', 'big'); audio.se('warning', 0.5); g.shakeMag = Math.max(g.shakeMag, 4); }
@@ -3731,7 +4323,7 @@ const stageMagma = {
   onContinue: (g) => { g.geysers = []; if (g.frame >= 2830) g.midDone = true; },
 };
 
-return { lavaRock, geyser, volcanoTurtle, magmaDragon, stageMagma };
+return { emberLine, lavaRock, geyser, volcanoTurtle, magmaDragon, stageMagma };
 })();
 
 __M['./stageIce.js'] = (function () {
@@ -3749,6 +4341,7 @@ const { audio } = __M['./audio.js'];
 const { U } = __M['./orig.js'];
 const { freeImg, ready } = __M['./free.js'];
 const { RIG } = __M['./rig.js'];
+const { bossDeath } = __M['./stagekit.js'];
 const { mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
 const waves = [];
 const at = (f, fn) => waves.push([f, fn]);
@@ -3932,6 +4525,7 @@ function frostBeetle(g, X) {
   const ph = () => (e.hp > e.maxHp * 0.66 ? 1 : e.hp > e.maxHp * 0.33 ? 2 : 3);
   e.update = (g, e) => {
     e.t++; e.cyc++;
+    if (e.rematchOpt && bossDeath(g, e, e.rematchOpt)) { sync(e); return; } // the final stage's rematch: a short death
     if (e.bar < 286) e.bar += 2;
     const p = ph();
     if (p !== e.phase && e.hp > 0) { e.phase = p; g.kid.pop(p === 2 ? 'おこった!' : 'げきおこ!!', e.x, e.y + 110, '#f44', 'big'); audio.se('warning', 0.5); g.shakeMag = Math.max(g.shakeMag, 4); }
@@ -4123,25 +4717,722 @@ const stageIce = {
   onContinue: (g) => { g.wind = null; g.windNow = 0; if (g.frame >= 2830) g.midDone = true; },
 };
 
-return { wall, iceberg, frostBeetle, stageIce };
+return { clump, icicles, wall, iceberg, frostBeetle, stageIce };
+})();
+
+__M['./stageThunder.js'] = (function () {
+// かみなり星 (gives the LOCK-ON; its boss サンダーイール is weak to the ICE).
+//   1 とうちゃく   space: a purple gas giant; ピリリ come in PAIRS joined by an electric line (the line hurts; break one
+//                  ball and the line is gone) — the lock-on loves them
+//   2 らいうん     inside the storm: ゴロゴロ雲 call down LIGHTNING (a flickering line + "!" first), dragonflies zig-zag
+//   3 でんきウニ   armoured urchins, lightning everywhere
+//   4 ゴロゴロダイコ mid-boss: a giant drum; break the two armoured side drums, then the big one
+//   5 そうりょくせん everything
+//   then サンダーイール: a long eel darting over the clouds; after its big shock the mouth opens.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { freeImg } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
+const { addHazard, approach, bossDeath, bossPhase, drawHazards, entry, groundAlpha, groundTile, hintAt: hint, makeTable, twinGuard, updateHazards, weakRing } = __M['./stagekit.js'];
+const waves = [];
+const at = (f, fn) => waves.push([f, fn]);
+
+// ================================================================ hazard: lightning (a column, from the clouds down)
+const LW = 70, LS = 24; // warning frames, strike frames
+function lightning(g, x) {
+  x = Math.max(24, Math.min(616, x));
+  const h = addHazard(g, {
+    x,
+    update: (g, h) => { if (h.t === LW) { audio.se('release3', 0.45); g.flash = Math.max(g.flash, 0.25); g.shakeMag = Math.max(g.shakeMag, 3); } return h.t < LW + LS + 8; },
+    danger: (px) => Math.abs(px - x) < 50,
+    draw: (ctx, g, h) => {
+      if (h.t <= LW) { // flickering warning line + "!"
+        if (h.t % 6 < 4) { ctx.save(); ctx.strokeStyle = 'rgba(255,250,150,0.5)'; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 480); ctx.stroke(); ctx.restore(); }
+        if (h.t % 16 < 10) { ctx.save(); ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = '#000'; ctx.strokeText('!', x, 60); ctx.fillStyle = '#ff4'; ctx.fillText('!', x, 60); ctx.restore(); }
+        return;
+      }
+      const a = Math.max(0, 1 - (h.t - LW - LS) / 8);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a; ctx.lineJoin = 'round';
+      for (const [w, col] of [[26, 'rgba(255,240,80,0.35)'], [10, '#fff6a0'], [4, '#fff']]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, 0);
+        for (let y = 40; y <= 480; y += 40) ctx.lineTo(x + Math.sin(y * 0.7 + h.t * 3) * 14, y);
+        ctx.stroke();
+      }
+      draw(ctx, SPR.flareWhite, x, 470, { scale: 0.6, add: true, alpha: a });
+      ctx.restore();
+    },
+  });
+  h.hit = (px) => h.t > LW && h.t < LW + LS && Math.abs(px - x) < 20;
+}
+const boltAtShip = (dx = 0) => (g) => lightning(g, g.px + dx);
+
+// ================================================================ enemies
+// ピリリ pair: two balls joined by an electric line (the line hurts, like a fence). Break one and the line is gone.
+function pirili(x0, dir, delay, gap) {
+  const a = mk(70, x0, -60, { hp: 3, r: 16, gems: 1, delay, dir, x0 });
+  const b = mk(70, x0 + gap, -60, { hp: 3, r: 16, gems: 1 });
+  const move = (ox) => (g, e2) => {
+    e2.t++;
+    const t = e2.t - a.delay;
+    if (t < 0) { e2.y = -80; sync(e2); return; }
+    e2.y = -50 + t * 1.6; e2.x = a.x0 + ox + Math.sin(t * 0.03) * 100 * a.dir;
+    if (offscreen(e2) && t > 60) e2.dead = true;
+    sync(e2);
+  };
+  a.update = move(0); b.update = move(gap);
+  const linked = () => !a.dead && !b.dead && a.hp >= 0 && b.hp >= 0 && a.t > a.delay;
+  a.parts = () => { if (!linked()) return []; const out = []; for (let i = 1; i < 6; i++) { const k = i / 6; out.push({ on: true, x: a.cx + (b.cx - a.cx) * k, y: a.cy + (b.cy - a.cy) * k, r: 7 }); } return out; };
+  const art = (ctx, e, g) => sprite(ctx, e, RIG('spark'), 0.6, g.t * 0.1);
+  a.draw = (ctx, e, g) => {
+    if (linked()) { // the electric line
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round';
+      for (const [w, col] of [[8, 'rgba(255,240,80,0.3)'], [3, '#fff6a0']]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.cx, a.cy);
+        for (let i = 1; i < 6; i++) { const k = i / 6; ctx.lineTo(a.cx + (b.cx - a.cx) * k + (Math.random() - 0.5) * 10, a.cy + (b.cy - a.cy) * k + (Math.random() - 0.5) * 10); }
+        ctx.lineTo(b.cx, b.cy); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    art(ctx, e, g);
+  };
+  b.draw = art;
+  return [a, b];
+}
+const pairs = (x, dir = 1, n = 3, gap = 140) => (g, X) => { for (let i = 0; i < n; i++) pirili(X(x), dir, i * 40, gap).forEach((e) => g.spawn(e)); };
+
+// カミナリトンボ: fast zig-zag
+function tonbo(x, dir) {
+  const e = mk(71, x, -40, { hp: 6, r: 18, gems: 3, dir });
+  e.update = (g, e) => {
+    e.t++;
+    e.x += e.dir * 5; e.y += 1.3 + Math.sin(e.t * 0.1) * 3;
+    if ((e.x > 600 && e.dir > 0) || (e.x < 40 && e.dir < 0)) e.dir = -e.dir;
+    if (e.t % 120 === 60 && e.y > 0) shoot(g, 1, 3.6, 4, e.x - 8, e.y);
+    if (e.t > 500) e.y += 3;
+    if (offscreen(e) && e.t > 30) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => sprite(ctx, e, RIG(g.t % 4 < 2 ? 'tonbo0' : 'tonbo1'), 0.7, e.dir * 0.3);
+  return e;
+}
+const tonbos = (...pp) => (g, X) => pp.forEach(([x, d]) => g.spawn(tonbo(X(x), d)));
+
+// ゴロゴロ雲: hovers at the top and calls lightning on the ship
+function cloud(x) {
+  const e = mk(72, x, -60, { hp: 10, r: 30, gems: 4 });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.y < 70) e.y += 1.2; else if (e.t > 640) e.y -= 1.5;
+    e.x += Math.sin(e.t * 0.02) * 1.2;
+    if (e.t % 200 === 120 && e.t < 600) { lightning(g, g.px); audio.lab('charge', 0.3, 1.2); }
+    if (e.t > 640 && e.y < -60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => sprite(ctx, e, RIG('cloudE'), 0.7);
+  return e;
+}
+const clouds = (...xs) => (g, X) => xs.forEach((x) => g.spawn(cloud(X(x))));
+
+// でんきウニ: ARMOURED, slow, a ring now and then
+function urchin(x, stopY = 120) {
+  const e = mk(73, x, -80, { hp: 24, r: 34, gems: 8, armor: true, wasArmor: true, stopY });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.y < e.stopY) e.y += 1.4; else if (e.t > 560) e.y += 1.2;
+    e.rot += 0.01;
+    if (e.t % 170 === 85 && e.y > 20) { shoot(g, 8, 2.0, 2, e.x - 8, e.y, e.t * 100); audio.se('enemyFire', 0.4); }
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => sprite(ctx, e, RIG('urchin'), 0.66, e.rot);
+  return e;
+}
+const urchins = (...xs) => (g, X) => xs.forEach((x, i) => g.spawn(urchin(X(x), 100 + (i % 2) * 40)));
+
+// ================================================================ mid-boss: ゴロゴロダイコ
+const drumBoss = (g, X) => twinGuard(g, X, {
+  type: 74, hp: 110, r: 70, partHp: 18, partR: 26, off: [140, 10], name: 'タイコ', barrier: [190, 120, '#cf4'],
+  body: (ctx, e) => { const k = 1 + Math.max(0, 6 - (e.t % 90)) * 0.015; draw(ctx, RIG('drum'), e.cx, e.cy, { scale: 0.9 * k }); if (e.flash) draw(ctx, RIG('drum'), e.cx, e.cy, { scale: 0.9 * k, add: true, alpha: 0.3 }); },
+  part: (ctx, c) => { draw(ctx, RIG('drumS'), c.cx, c.cy, { scale: 0.8, rot: c.gone ? c.t * 0.1 : 0 }); if (c.flash) draw(ctx, RIG('drumS'), c.cx, c.cy, { scale: 0.8, add: true, alpha: 0.5 }); },
+  attack: (g, e, left) => {
+    if (e.t % 90 === 0) { shoot(g, left ? 8 : 12, 2.2, 2, e.x - 8, e.y, e.t * 50); audio.se('hit', 0.6); g.shakeMag = Math.max(g.shakeMag, 4); g.kid.pop('ドン!', e.x, e.y - 60, '#ff4', 'small'); }
+    if (e.t % 260 === 130) pairs(e.x - 70, 1, 1, 140)(g, (x) => x);
+  },
+  partAttack: (g, c) => { if (c.t % 220 === (c.side > 0 ? 40 : 150)) lightning(g, g.px + c.side * 30); },
+});
+
+// ================================================================ boss: サンダーイール
+// Cycle: swims fast over the clouds (sparks fly off its body) -> coils at the top and glows ("なにか くる…!") ->
+// BIG SHOCK: lightning strikes in lanes (gaps between them) -> MOUTH OPEN 2.8 s -> again.
+// Below 2/3: lightning on the ship while swimming. Below 1/3: the body throws spark rings.
+const SEGS = 12, GAP = 6;
+function thunderEel(g, X) {
+  const e = mk(44, X(320), -160, { hp: 300, r: 44, boss: true, gems: 60, bar: 0, phase: 1, cyc: 0, cs: 'enter', open: false, white: 0, jaw: 0, glow: 0 });
+  e.maxHp = 300; e.weakTo = g.stageDef.weak || null;
+  e.weak = (kind) => (e.open ? 1 : kind === 'mega' ? 1 : 0.3);
+  e.trail = []; for (let i = 0; i < SEGS * GAP + GAP; i++) e.trail.push([e.x, e.y - i * 4]);
+  const seg = (i) => e.trail[Math.min(e.trail.length - 1, (i + 1) * GAP)];
+  e.parts = () => (e.cs === 'dying' ? [] : Array.from({ length: SEGS }, (_, i) => { const [x, y] = seg(i); return { on: true, x, y, r: 18 - i * 0.6 }; }));
+  let sw = 0;
+  e.update = (g, e) => {
+    e.t++; e.cyc++;
+    bossPhase(g, e);
+    const fast = e.phase === 3 ? 0.8 : 1, ox = e.x, oy = e.y;
+    if (!bossDeath(g, e, e.rematchOpt)) switch (e.cs) {
+      case 'enter': e.y += 1.8; if (e.y >= 120) { e.cs = 'swim'; e.cyc = 0; } break;
+      case 'swim': {
+        sw++;
+        const tx = 320 + Math.sin(sw * 0.021) * 250, ty = 150 + Math.sin(sw * 0.047) * 75;
+        e.x += (tx - e.x) * 0.08; e.y += (ty - e.y) * 0.08;
+        if (e.cyc % Math.round(70 * fast) === 35) { shoot(g, 3, 3.0, 3, e.x - 8, e.y + 40); audio.se('enemyFire', 0.5); }
+        if (e.cyc % 50 === 25) { const [sx, sy] = seg(4 + (e.cyc % 3) * 3); shoot(g, 1, 2.4, 4, sx - 8, sy); }
+        if (e.phase >= 2 && e.cyc % 210 === 100) lightning(g, g.px);
+        if (e.phase === 3 && e.cyc % 160 === 80) { const [sx, sy] = seg(6); shoot(g, 8, 1.9, 2, sx - 8, sy, e.t * 100); }
+        if (e.cyc > 260 * fast) { e.cs = 'charge'; e.cyc = 0; audio.lab('charge', 0.7, 1.1); g.kid.pop('なにか くる…!', e.x, e.y + 110, '#ff4'); }
+        break;
+      }
+      case 'charge':
+        e.x += (320 - e.x) * 0.05; e.y += (100 - e.y) * 0.05; e.glow = Math.min(1, e.cyc / 60); e.jaw = e.glow * 0.3;
+        if (e.cyc === 30) { // the lanes: every other one strikes, the gap is wide
+          const off = Math.random() < 0.5 ? 0 : 80;
+          for (let x = 40 + off; x < 640; x += 160) lightning(g, x);
+        }
+        if (e.cyc > 30 + LW + 6) { e.cs = 'open'; e.cyc = 0; e.open = true; e.glow = 0; audio.lab('kira2', 0.7, 0.7); g.kid.pop('弱点が 開いた!', e.x, e.y + 130, 'rainbow', 'big'); }
+        break;
+      case 'open':
+        e.jaw = 1; e.y += (150 - e.y) * 0.02;
+        if (e.cyc > 170) { e.cs = 'swim'; e.cyc = 0; e.open = false; e.jaw = 0; }
+        break;
+    }
+    if (e.cs === 'dying') e.jaw = 1;
+    if (e.cs !== 'dying' && (Math.abs(e.x - ox) > 0.05 || Math.abs(e.y - oy) > 0.05 || e.cs === 'enter')) { e.trail.unshift([e.x, e.y]); e.trail.length = SEGS * GAP + GAP; }
+    e.head = Math.max(-0.6, Math.min(0.6, (e.x - ox) * 0.1));
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / (e.rematchOpt ? 80 : 160)) : 1;
+    ctx.save(); ctx.globalAlpha = alpha;
+    const [tx, ty] = e.trail[e.trail.length - 1], [px, py] = seg(SEGS - 1);
+    draw(ctx, RIG('eelTail'), tx, ty, { scale: 0.7, rot: Math.atan2(ty - py, tx - px) - Math.PI / 2 });
+    for (let i = SEGS - 1; i >= 0; i--) {
+      const [x, y] = seg(i), [nx, ny] = i ? seg(i - 1) : [e.x, e.y];
+      draw(ctx, RIG('eelSeg'), x, y, { scale: 0.7 - i * 0.02, rot: Math.atan2(ny - y, nx - x) + Math.PI / 2 });
+    }
+    if (g.t % 4 < 2) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const [x, y] = seg((g.t >> 2) % SEGS); draw(ctx, SPR.sparkWhite, x, y, { scale: 0.5, add: true, alpha: 0.7 }); ctx.restore(); }
+    ctx.save(); ctx.translate(e.cx, e.cy); ctx.rotate(e.head);
+    draw(ctx, RIG('eelJaw'), 0, 46 + e.jaw * 30, { scale: 0.8 });
+    ctx.globalCompositeOperation = 'lighter';
+    if (e.glow > 0) draw(ctx, SPR.sparkWhite, 0, 50, { scale: 0.4 + e.glow * 0.8, add: true, rot: g.t * 0.3 });
+    if (e.open) draw(ctx, SPR.flareWhite, 0, 58, { scale: 0.4 + Math.sin(e.t * 0.4) * 0.08, add: true });
+    ctx.globalCompositeOperation = 'source-over';
+    draw(ctx, RIG('eelHead'), 0, -4, { scale: 0.8 });
+    if (e.flash) draw(ctx, RIG('eelHead'), 0, -4, { scale: 0.8, add: true, alpha: e.open ? 0.5 : 0.2 });
+    ctx.restore();
+    ctx.restore();
+    if (e.open) weakRing(ctx, g, e.cx, e.cy + 58, 40);
+  };
+  return g.spawn(e);
+}
+
+// ================================================================ the waves
+// ---- 1: arrival
+at(60, hint('かみなり星に 着いた!'));
+at(160, pairs(160, 1)); at(200, hint('2つで 1組! 線に さわると しびれる!'));
+at(380, pairs(400, -1)); at(470, pairs(240, 1, 3, 120)); at(560, pairs(120, 1, 3, 200)); at(600, tonbos([-40, 1])); at(680, pairs(420, -1, 4, 120));
+// ---- 2: the storm: lightning clouds, dragonflies
+at(840, clouds(320)); at(860, hint('かみなりが 落ちる! 「!」から にげろ!'));
+at(1000, pairs(200, 1)); at(1100, tonbos([-40, 1], [680, -1])); at(1200, clouds(160, 480));
+at(1280, pairs(160, 1, 4, 120)); at(1350, pairs(420, -1, 4)); at(1500, boltAtShip()); at(1560, tonbos([-40, 1])); at(1620, clouds(320)); at(1700, pairs(160, 1, 3, 180));
+// ---- 3: armoured urchins
+at(1900, urchins(320)); at(1920, hint('かたい! ためて ビームで つらぬけ!'));
+at(2050, pairs(200, 1)); at(2150, boltAtShip(-40)); at(2160, boltAtShip(40));
+at(2250, urchins(140, 500)); at(2300, pairs(320, 1, 4, 120)); at(2350, clouds(320)); at(2450, tonbos([-40, 1], [680, -1])); at(2600, urchins(320)); at(2650, pairs(420, -1));
+// ---- 4: mid-boss
+at(2840, (g) => g.kid.pop('でっかいのが くる!', 320, 300, '#f44', 'big'));
+at(2920, (g, X) => { g.mid = drumBoss(g, X); g.midDone = false; });
+at(2930, hint('小さい タイコは かたい! ビームで こわせ!'));
+// ---- 5: everything
+at(3060, pairs(160, 1, 4)); at(3200, clouds(200, 440)); at(3300, pairs(420, -1, 4, 120)); at(3350, urchins(320)); at(3400, tonbos([-40, 1], [680, -1]));
+at(3550, pairs(420, -1, 4, 180)); at(3700, boltAtShip()); at(3720, boltAtShip(-120)); at(3740, boltAtShip(120));
+at(3850, urchins(160, 480)); at(3950, (g) => { if (g.mega.ready) g.kid.pop('いまだ! メガバースト!', 320, 400, '#6ff', 'hint'); });
+at(4050, pairs(200, 1, 5, 160)); at(4200, clouds(320)); at(4300, tonbos([-40, 1], [680, -1])); at(4450, urchins(140, 500)); at(4550, pairs(400, -1, 4));
+// ---- boss
+at(4880, (g) => { audio.stopBgm(); g.kid.warning(); });
+at(5130, () => audio.playBgm('boss'));
+at(5140, (g, X) => { g.boss = thunderEel(g, X); });
+at(5280, hint('ビリビリの あとに 口が 開く! そこを ねらえ!'));
+at(5340, (g) => { if (g.stageDef.weak && g.charger.weapons.includes(g.stageDef.weak)) g.kid.pop('アイスが よく きく!', 320, 430, '#7ae8ff', 'normal'); });
+
+const table = makeTable(waves, { pre: updateHazards, bgm: 'thunder' });
+
+// ================================================================ background: the planet, then above the storm clouds
+const NEB = freeImg('bg/cloud.jpg'), STARS = freeImg('bg/stars.jpg');
+function drawBg(ctx, g) {
+  ctx.fillStyle = '#0a0818'; ctx.fillRect(0, 0, 640, 480);
+  g.scrollY = (g.scrollY || 0) + (g.mega.active ? 0.2 : 1);
+  approach(ctx, g, NEB, STARS, 'thunderPlanet');
+  const ground = groundAlpha(g);
+  if (ground > 0) {
+    groundTile(ctx, 'stormTile', g.scrollY, ground);
+    // cloud flashes: a cloud lights up from inside now and then
+    const k = (g.t % 170) / 170;
+    if (k < 0.06) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = ground * (0.06 - k) * 6; draw(ctx, SPR.glowPink, (g.t * 37) % 640, (g.t * 53) % 480, { scale: 2.5, add: true }); ctx.restore(); }
+    // fast cloud wisps
+    ctx.save(); ctx.globalAlpha = 0.25 * ground;
+    for (let i = 0; i < 5; i++) { const yy = ((g.scrollY * 3 + i * 190) % 960) - 200; draw(ctx, SPR.smoke, (i * 233) % 640, yy, { scale: 3.5, rot: i }); }
+    ctx.restore();
+    if (g.frame > 4880) { ctx.save(); ctx.globalAlpha = Math.min(0.35, (g.frame - 4880) / 400); ctx.fillStyle = '#100820'; ctx.fillRect(0, 0, 640, 480); ctx.restore(); }
+  }
+  entry(ctx, g, '220,200,255');
+  if (g.flash > 0) { ctx.save(); ctx.fillStyle = `rgba(255,255,220,${g.flash * 0.6})`; ctx.fillRect(0, 0, 640, 480); ctx.restore(); }
+  drawHazards(ctx, g);
+}
+
+function portrait(ctx, x, y, s, t) { draw(ctx, RIG('eelHead'), x, y + Math.sin(t * 0.05) * 2, { scale: s * 0.75 }); }
+
+const stageThunder = {
+  id: 'thunder', table, drawBg, portrait, checkpoints: [0, 1880, 2830, 4870],
+  onContinue: (g) => { g.hazards = []; if (g.frame >= 2830) g.midDone = true; },
+};
+
+return { lightning, pairs, thunderEel, stageThunder };
+})();
+
+__M['./stageJunk.js'] = (function () {
+// ジャンク要さい (gives the DRILL; its boss ジャンクゴーレム is weak to the LOCK-ON).
+//   1 とうちゃく   space: a fortress the size of a planet, made of scrap; drones fly in V formations
+//   2 鉄くずの かべ rows of ARMOURED junk blocks (explosions bounce off: the beam Lv2 / drill pierce a way through),
+//                  turrets on the deck aim at the ship, saw blades bounce around
+//   3 プレス       heavy presses slam down a column (a shadow and "!" first)
+//   4 クレーンロボ  mid-boss: break its two armoured claw arms, then the body
+//   5 そうりょくせん everything
+//   then ジャンクゴーレム: a core with six pieces of junk orbiting it. Break ALL the pieces (the lock-on hits many at
+//   once) and the core opens; then it pulls new junk in and starts again.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { freeImg } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { aimAt, mk, offscreen, shoot, sprite, sync } = __M['./monsters.js'];
+const { addHazard, approach, bossDeath, bossPhase, drawHazards, entry, groundAlpha, groundTile, hintAt: hint, makeTable, twinGuard, updateHazards, weakRing } = __M['./stagekit.js'];
+const waves = [];
+const at = (f, fn) => waves.push([f, fn]);
+const SCROLL = 1.1; // the deck scrolls 1.1 px per frame (ground things move with it)
+
+// ================================================================ hazard: press (slams down a column)
+const PW = 75, PS = 50;
+function press(g, x) {
+  x = Math.max(60, Math.min(580, x));
+  const h = addHazard(g, {
+    x, y: -140,
+    update: (g, h) => {
+      if (h.t <= PW) h.y = -140 + Math.min(1, h.t / 30) * 40;
+      else if (h.t <= PW + 10) { h.y += 48; if (h.t === PW + 10) { audio.se('hit', 0.8); g.shakeMag = Math.max(g.shakeMag, 8); g.kid.shards(x, 440, 8); } }
+      else if (h.t > PW + PS) h.y -= 14;
+      return h.t < PW + PS + 50;
+    },
+    danger: (px) => Math.abs(px - x) < 90,
+    draw: (ctx, g, h) => {
+      if (h.t <= PW) { // shadow on the deck + "!"
+        const k = h.t / PW;
+        ctx.save(); ctx.globalAlpha = 0.15 + k * 0.35; ctx.fillStyle = '#000'; ctx.fillRect(x - 56, 0, 112, 480); ctx.restore();
+        if (h.t % 16 < 10) { ctx.save(); ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = '#000'; ctx.strokeText('!', x, 300); ctx.fillStyle = '#ff4'; ctx.fillText('!', x, 300); ctx.restore(); }
+      }
+      draw(ctx, RIG('press'), x, h.y, { scale: 1 });
+      ctx.save(); ctx.fillStyle = '#3a3e48'; ctx.fillRect(x - 14, -10, 28, h.y - 40); ctx.restore(); // the rod
+    },
+  });
+  h.hit = (px, py) => h.t > PW && h.t < PW + PS && Math.abs(px - x) < 52 && py < h.y + 60;
+}
+const pressAtShip = (dx = 0) => (g) => press(g, g.px + dx);
+
+// ================================================================ enemies
+// drones in a V (one hit chains the V)
+function drone(x, y, delay, dir) {
+  const e = mk(80, x, y, { hp: 2, r: 14, gems: 1, delay, dir });
+  e.update = (g, e) => {
+    e.t++;
+    if (e.t < e.delay) { sync(e); return; }
+    e.y += 2.2; e.x += Math.sin((e.t - e.delay) * 0.03) * 1.6 * e.dir;
+    if (offscreen(e) && e.t > 60) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => sprite(ctx, e, RIG('drone'), 0.6, Math.sin(e.t * 0.1) * 0.1);
+  return e;
+}
+const vee = (x, n = 7, dir = 1) => (g, X) => { for (let i = 0; i < n; i++) { const k = i - (n - 1) / 2; g.spawn(drone(X(x) + k * 26, -40 - Math.abs(k) * 22, 0, dir)); } };
+
+// saw blade: bounces off the sides, spins; falls away after a while
+function saw(x, dir) {
+  const e = mk(81, x, -40, { hp: 6, r: 20, gems: 3, vx: dir * 3.2, vy: 2.2 });
+  e.update = (g, e) => {
+    e.t++; e.x += e.vx; e.y += e.vy; e.rot += 0.3;
+    if (e.x < 24 || e.x > 616) e.vx = -e.vx;
+    if (e.t < 400 && (e.y > 330 || e.y < 40)) e.vy = -e.vy;
+    if (e.t > 40 && offscreen(e)) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => sprite(ctx, e, RIG('saw'), 0.6, e.rot);
+  return e;
+}
+const saws = (...pp) => (g, X) => pp.forEach(([x, d]) => g.spawn(saw(X(x), d)));
+
+// turret on the deck: scrolls with it, aims and fires
+function turret(x) {
+  const e = mk(82, x, -50, { hp: 8, r: 24, gems: 4 });
+  e.update = (g, e) => {
+    e.t++; e.y += SCROLL;
+    e.aim = Math.atan2(g.py - e.y, g.px - e.x);
+    if (e.t % 130 === 70 && e.y > 30 && e.y < 360) { shoot(g, 1, 3.2, 4, e.x - 8, e.y); audio.se('enemyFire', 0.4); }
+    if (e.y > 540) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => {
+    sprite(ctx, e, RIG('turret'), 0.7);
+    draw(ctx, RIG('turretGun'), e.cx + Math.cos(e.aim) * 14, e.cy + Math.sin(e.aim) * 14, { scale: 0.8, rot: e.aim - Math.PI / 2 });
+  };
+  return e;
+}
+const turrets = (...xs) => (g, X) => xs.forEach((x) => g.spawn(turret(X(x))));
+
+// junk wall: ARMOURED blocks (explosions bounce off), harmless to touch, stop shots both ways
+function junk(x, y) {
+  const e = mk(83, x, y, { hp: 6, r: 30, gems: 1, armor: true, wasArmor: true, dmg: { body: 0 }, v: Math.random() < 0.5 ? 1 : 0 });
+  e.update = (g, e) => {
+    e.t++; e.y += SCROLL;
+    for (const b of g.bullets.pool) if (Math.abs(b.cx - e.x) < 32 && Math.abs(b.cy - e.y) < 28) g.bullets.pool.free(b);
+    if (e.y > 560) e.dead = true;
+    sync(e);
+  };
+  e.draw = (ctx, e) => sprite(ctx, e, RIG('junk' + e.v), 0.9);
+  return e;
+}
+const junkWall = (gapX, rows = 1) => (g, X) => { for (let r = 0; r < rows; r++) for (let x = 36; x < 640; x += 64) if (Math.abs(x - X(gapX)) > 70) g.spawn(junk(x, -40 - r * 58)); };
+const junkFull = () => (g) => { for (let x = 36; x < 640; x += 64) g.spawn(junk(x, -40)); }; // no gap: dig through!
+
+// ================================================================ mid-boss: クレーンロボ
+const craneBoss = (g, X) => twinGuard(g, X, {
+  type: 84, hp: 110, r: 64, partHp: 18, partR: 26, off: [120, 90], name: 'アーム', barrier: [180, 140, '#fc4'],
+  body: (ctx, e) => { draw(ctx, RIG('crane'), e.cx, e.cy, { scale: 0.85 }); if (e.flash) draw(ctx, RIG('crane'), e.cx, e.cy, { scale: 0.85, add: true, alpha: 0.3 }); },
+  part: (ctx, c) => {
+    if (!c.gone) { ctx.save(); ctx.strokeStyle = '#3a3e48'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(c.cx - c.side * 90, c.cy - 70); ctx.lineTo(c.cx, c.cy - 40); ctx.stroke(); ctx.restore(); }
+    draw(ctx, RIG('craneArm'), c.cx, c.cy, { scale: 0.8, rot: c.gone ? c.t * 0.1 : Math.sin(c.t * 0.05) * 0.15 });
+    if (c.flash) draw(ctx, RIG('craneArm'), c.cx, c.cy, { scale: 0.8, add: true, alpha: 0.5 });
+  },
+  attack: (g, e, left) => {
+    if (e.t % 160 === 80) { shoot(g, 5, 2.6, 3, e.x - 8, e.y + 60); audio.se('enemyFire', 0.5); }
+    if (e.t % 280 === 140) vee(e.x, 7)(g, (x) => x);
+    if (!left && e.t % 130 === 65) shoot(g, 10, 2.2, 2, e.x - 8, e.y, e.t * 40);
+  },
+  partAttack: (g, c) => { if (c.t % 240 === (c.side > 0 ? 60 : 180)) { press(g, g.px); } },
+});
+
+// ================================================================ boss: ジャンクゴーレム
+// The core (with a head) and 6 junk pieces orbiting it. While any piece is left the core takes 20%.
+// All pieces broken -> the core OPENS for 4 s (MEGA x2) -> it pulls in new junk. The pieces fire, and one is thrown
+// at the ship now and then (it flashes and a line shows the way first). Lock-on lasers do x2 to the pieces.
+function junkGolem(g, X) {
+  const e = mk(45, X(320), -200, { hp: 300, r: 58, boss: true, gems: 60, bar: 0, phase: 1, cyc: 0, cs: 'enter', open: false, white: 0, spin: 0 });
+  e.maxHp = 300; e.weakTo = g.stageDef.weak || null;
+  e.weak = (kind) => (e.open ? 1 : kind === 'mega' ? 1 : 0.2);
+  e.pieces = [];
+  const N = 6;
+  const build = (fromFar) => {
+    e.pieces = [];
+    for (let i = 0; i < N; i++) {
+      const p = mk(46, e.x, e.y, { hp: 10, r: 22, gems: 2, big: true, slot: i, k: i % 4, state: fromFar ? 'fly' : 'orbit' });
+      p.weak = (kind) => (kind === 'laser' ? 2 : 1);
+      if (fromFar) { const a = Math.random() * Math.PI * 2; p.x = 320 + Math.cos(a) * 500; p.y = 200 + Math.sin(a) * 400; }
+      p.update = (g, p) => {
+        p.t++;
+        const a = e.spin + p.slot * Math.PI * 2 / N, ox = e.x + Math.cos(a) * 118, oy = e.y + Math.sin(a) * 90;
+        if (p.state === 'fly') { p.x += (ox - p.x) * 0.08; p.y += (oy - p.y) * 0.08; if (Math.hypot(ox - p.x, oy - p.y) < 6) p.state = 'orbit'; }
+        else if (p.state === 'orbit') { p.x = ox; p.y = oy; if (e.cs === 'hover' && p.t % 210 === p.slot * 35 && p.y > 0) shoot(g, 1, 3.0, 4, p.x - 8, p.y); }
+        else if (p.state === 'aim') { p.x = ox; p.y = oy; if (p.t - p.st > 45) { p.state = 'thrown'; const d = Math.hypot(p.tx - p.x, p.ty - p.y) || 1; p.vx = (p.tx - p.x) / d * 7; p.vy = (p.ty - p.y) / d * 7; audio.se('release1', 0.7); } }
+        else if (p.state === 'thrown') { p.x += p.vx; p.y += p.vy; p.rot += 0.2; if (p.y > 520 || p.x < -60 || p.x > 700) { p.state = 'fly'; } }
+        if (p.hp < 0 && !p.gone) { p.gone = true; p.dead = true; g.explosion(p.x, p.y, 'M'); g.kid.onKill(p, 0); g.blast(p.x, p.y, 0); audio.se('enemyDown', 0.8); }
+        if (e.dead || e.cs === 'dying') p.dead = true;
+        sync(p);
+      };
+      p.draw = (ctx, p, g) => {
+        if (p.state === 'aim') { ctx.save(); ctx.strokeStyle = `rgba(255,80,40,${0.3 + 0.4 * (g.t % 8 < 4)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(p.cx, p.cy); ctx.lineTo(p.tx, p.ty); ctx.stroke(); ctx.restore(); }
+        sprite(ctx, p, RIG('jgPart' + p.k), 0.62, p.rot + (p.state === 'orbit' ? e.spin : 0));
+        if (p.state === 'aim' && g.t % 8 < 4) draw(ctx, RIG('jgPart' + p.k), p.cx, p.cy, { scale: 0.62, add: true, alpha: 0.6 });
+      };
+      e.pieces.push(g.spawn(p));
+    }
+  };
+  e.update = (g, e) => {
+    e.t++; e.cyc++;
+    bossPhase(g, e);
+    const fast = e.phase === 3 ? 0.8 : 1;
+    const left = e.pieces.filter((p) => !p.gone).length;
+    if (!bossDeath(g, e, e.rematchOpt)) {
+      e.spin += e.open ? 0.005 : 0.02;
+      switch (e.cs) {
+        case 'enter': e.y += 1.4; if (e.y >= 140) { e.cs = 'hover'; e.cyc = 0; build(false); } break;
+        case 'hover':
+          e.x += Math.sin(e.t * 0.015) * 1.2 + (g.px - e.x) * 0.004;
+          if (e.cyc % Math.round(150 * fast) === 75 && left) { // throw a piece at the ship
+            const ps = e.pieces.filter((p) => !p.gone && p.state === 'orbit');
+            const p = ps[Math.floor(Math.random() * ps.length)];
+            if (p) { p.state = 'aim'; p.st = p.t; p.tx = g.px; p.ty = g.py; g.kid.pop('なげてくる!', p.x, p.y + 40, '#fc6', 'small'); }
+          }
+          if (e.cyc % Math.round(110 * fast) === 55) { shoot(g, 3, 2.8, 3, e.x - 8, e.y + 60); audio.se('enemyFire', 0.5); }
+          if (e.phase >= 2 && e.cyc % 260 === 130) press(g, g.px);
+          if (e.phase === 3 && e.cyc % 300 === 30) vee(e.x < 320 ? 480 : 160, 7)(g, (x) => x);
+          if (!left) { e.cs = 'open'; e.cyc = 0; e.open = true; audio.lab('kira2', 0.7, 0.7); g.kid.pop('コアが 開いた! いまだ!', e.x, e.y + 120, 'rainbow', 'big'); }
+          break;
+        case 'open':
+          if (e.cyc > 240) { e.cs = 'hover'; e.cyc = 0; e.open = false; build(true); audio.lab('aura2', 0.6, 0.7); g.kid.pop('鉄くずが あつまってくる!', e.x, e.y + 120, '#fc6', 'big'); }
+          break;
+      }
+    }
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / (e.rematchOpt ? 80 : 160)) : 1;
+    ctx.save(); ctx.globalAlpha = alpha;
+    draw(ctx, RIG('jgCore'), e.cx, e.cy, { scale: 0.8, rot: e.spin * 0.3 });
+    if (e.flash) draw(ctx, RIG('jgCore'), e.cx, e.cy, { scale: 0.8, rot: e.spin * 0.3, add: true, alpha: e.open ? 0.5 : 0.2 });
+    ctx.globalCompositeOperation = 'lighter';
+    draw(ctx, e.open ? SPR.flareWhite : SPR.flareRed, e.cx, e.cy, { scale: e.open ? 0.5 + Math.sin(e.t * 0.4) * 0.06 : 0.2, add: true });
+    ctx.globalCompositeOperation = 'source-over';
+    draw(ctx, RIG('jgHead'), e.cx, e.cy - 84, { scale: 0.8 });
+    ctx.restore();
+    if (e.open) weakRing(ctx, g, e.cx, e.cy, 50);
+  };
+  return g.spawn(e);
+}
+
+// ================================================================ the waves
+// ---- 1: arrival
+at(60, hint('ジャンク要さいに 着いた!'));
+at(160, vee(200)); at(300, vee(440, 7, -1)); at(320, hint('ならんで くる! まとめて うて!'));
+at(460, vee(320, 9)); at(600, vee(160, 7)); at(620, vee(480, 7, -1)); at(700, saws([-20, 1]));
+// ---- 2: junk walls, turrets, saws
+at(840, junkWall(320)); at(860, hint('鉄くずの かべは かたい! ビームか ドリルで 通れ!'));
+at(1000, turrets(120, 520)); at(1100, vee(320, 7)); at(1200, junkWall(140)); at(1300, saws([660, -1]));
+at(1400, turrets(320)); at(1460, vee(200)); at(1500, vee(440, 7, -1)); at(1600, junkFull()); at(1620, hint('すきまが ない! ためて ほり進め!'));
+at(1750, turrets(140, 500)); at(1800, saws([-20, 1], [660, -1]));
+// ---- 3: presses
+at(1900, pressAtShip()); at(1910, hint('プレスが 落ちてくる! かげから にげろ!'));
+at(2000, vee(320, 9)); at(2100, turrets(200, 440)); at(2200, pressAtShip()); at(2260, junkWall(480));
+at(2350, saws([-20, 1])); at(2420, pressAtShip(-60)); at(2440, pressAtShip(60)); at(2550, vee(160)); at(2560, vee(480, 7, -1)); at(2650, turrets(320));
+// ---- 4: mid-boss
+at(2840, (g) => g.kid.pop('でっかいのが くる!', 320, 300, '#f44', 'big'));
+at(2920, (g, X) => { g.mid = craneBoss(g, X); g.midDone = false; });
+at(2930, hint('アームは かたい! ビームで こわせ!'));
+// ---- 5: everything
+at(3060, vee(320, 9)); at(3150, junkWall(200, 2)); at(3300, turrets(140, 500)); at(3400, saws([-20, 1], [660, -1]));
+at(3500, pressAtShip()); at(3600, vee(200)); at(3620, vee(440, 7, -1)); at(3750, junkFull());
+at(3900, (g) => { if (g.mega.ready) g.kid.pop('いまだ! メガバースト!', 320, 400, '#6ff', 'hint'); });
+at(4000, turrets(320)); at(4100, pressAtShip(-60)); at(4120, pressAtShip(60)); at(4250, vee(320, 11)); at(4400, junkWall(440, 2)); at(4550, saws([-20, 1]));
+// ---- boss
+at(4880, (g) => { audio.stopBgm(); g.kid.warning(); });
+at(5130, () => audio.playBgm('boss'));
+at(5140, (g, X) => { g.boss = junkGolem(g, X); });
+at(5280, hint('まわりの 鉄くずを ぜんぶ こわせ! コアが 開く!'));
+at(5340, (g) => { if (g.stageDef.weak && g.charger.weapons.includes(g.stageDef.weak)) g.kid.pop('ロックオンで まとめて ねらえ!', 320, 430, '#60ff90', 'normal'); });
+
+const table = makeTable(waves, { pre: updateHazards, bgm: 'junk' });
+
+// ================================================================ background
+const NEB = freeImg('bg/green.jpg'), STARS = freeImg('bg/stars.jpg');
+function drawBg(ctx, g) {
+  ctx.fillStyle = '#08080c'; ctx.fillRect(0, 0, 640, 480);
+  g.scrollY = (g.scrollY || 0) + (g.mega.active ? 0.2 : 1);
+  approach(ctx, g, NEB, STARS, 'fortress');
+  const ground = groundAlpha(g);
+  if (ground > 0) {
+    groundTile(ctx, 'floorTile', g.scrollY, ground);
+    // warning lights blinking along the deck
+    if (g.t % 60 < 30) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.4 * ground; for (let i = 0; i < 4; i++) draw(ctx, SPR.flareRed, 20 + (i % 2) * 600, ((g.scrollY * 1.1 + i * 160) % 640) - 40, { scale: 0.25, add: true }); ctx.restore(); }
+    if (g.frame > 4880) { ctx.save(); ctx.globalAlpha = Math.min(0.4, (g.frame - 4880) / 400); ctx.fillStyle = '#100a00'; ctx.fillRect(0, 0, 640, 480); ctx.restore(); }
+  }
+  entry(ctx, g, '255,200,120');
+  drawHazards(ctx, g);
+}
+
+function portrait(ctx, x, y, s, t) { draw(ctx, RIG('jgHead'), x, y + Math.sin(t * 0.05) * 2, { scale: s * 0.9 }); }
+
+const stageJunk = {
+  id: 'junk', table, drawBg, portrait, checkpoints: [0, 1880, 2830, 4870],
+  onContinue: (g) => { g.hazards = []; if (g.frame >= 2830) g.midDone = true; },
+};
+
+return { press, vee, saws, junkGolem, stageJunk };
+})();
+
+__M['./stageFinal.js'] = (function () {
+// 最終ステージ「マザー」: inside the monsters' mother ship.
+//   1 とつにゅう   enemies of all four planets
+//   2 ボスラッシュ  the four bosses come back one by one (less HP): マグマドラゴン, フロストビートル, サンダーイール,
+//                  ジャンクゴーレム — each still weak to its weapon
+//   3 マザー       four forms, one armour petal each (red / blue / green / gold). Each form is weak to a different
+//                  weapon (hammer, ice, lock-on, drill) and attacks with its planet's tricks; after its ring blast the
+//                  great eye opens (100%, MEGA x2). Beaten -> the ending.
+const { SPR, draw } = __M['./assets.js'];
+const { audio } = __M['./audio.js'];
+const { freeImg } = __M['./free.js'];
+const { RIG } = __M['./rig.js'];
+const { mk, shoot, sync } = __M['./monsters.js'];
+const { bossDeath, drawHazards, hintAt: hint, makeTable, tileY, updateHazards, weakRing } = __M['./stagekit.js'];
+const { emberLine, magmaDragon } = __M['./stageMagma.js'];
+const { clump, frostBeetle, icicles, wall } = __M['./stageIce.js'];
+const { lightning, pairs, thunderEel } = __M['./stageThunder.js'];
+const { junkGolem, press, saws, vee } = __M['./stageJunk.js'];
+const waves = [];
+const at = (f, fn) => waves.push([f, fn]);
+
+// ================================================================ boss rush
+const RUSH = [[magmaDragon, 'drill', 'ドリル'], [frostBeetle, 'hammer', 'ハンマー'], [thunderEel, 'ice', 'アイス'], [junkGolem, 'lockon', 'ロックオン']];
+function rushStep(g) {
+  const r = g.rush;
+  if (!r || r.i >= RUSH.length || g.boss || g.t < r.at) return;
+  const [make, weak, name] = RUSH[r.i];
+  const e = make(g, (x) => x);
+  e.maxHp = e.hp = Math.round(e.maxHp * 0.4); e.weakTo = weak;
+  e.rematchOpt = { onDead: (g) => { r.i++; r.at = g.t + 90; if (r.i >= RUSH.length) { g.midDone = true; g.kid.pop('ボスラッシュ クリア!!', 320, 240, 'rainbow', 'huge'); audio.stopBgm(); } } };
+  g.boss = e; g.battle = true;
+  g.kid.pop(`${r.i + 1} / 4`, 320, 200, '#fff', 'big');
+  if (g.charger.weapons.includes(weak)) g.kid.pop(`${name}が よく きく!`, 320, 430, '#ff4', 'normal');
+}
+
+// ================================================================ マザー
+const FHP = 90, WEAK = ['hammer', 'ice', 'lockon', 'drill'], WEAK_NAME = ['ハンマー', 'アイス', 'ロックオン', 'ドリル'];
+const FORM_NAME = ['ほのおの 形', 'こおりの 形', 'かみなりの 形', 'てつの 形'];
+const PETAL_AT = [[-120, -70], [120, -70], [-120, 80], [120, 80]];
+function mother(g, X) {
+  const e = mk(47, X(320), -240, { hp: FHP * 4, r: 74, boss: true, gems: 100, bar: 0, cyc: 0, cs: 'enter', open: 0, white: 0, form: 0, off: [false, false, false, false] });
+  e.maxHp = FHP * 4; e.weakTo = WEAK[0];
+  e.weak = (kind) => (e.cs === 'change' || e.cs === 'enter' ? 0 : e.open > 0.5 ? 1 : kind === 'mega' ? 1 : 0.3);
+  const X0 = (x) => x;
+  e.update = (g, e) => {
+    e.t++; e.cyc++;
+    if (e.bar < 286) e.bar += 2;
+    e.open += ((e.cs === 'open' ? 1 : 0) - e.open) * 0.12;
+    if (bossDeath(g, e)) { sync(e); return; }
+    // the next form when this form's HP is used up
+    if (e.form < 3 && e.hp <= FHP * (3 - e.form) && e.cs !== 'change') { e.cs = 'change'; e.cyc = 0; g.bullets.clear(); g.hazards = []; }
+    const f = e.form;
+    switch (e.cs) {
+      case 'enter': e.y += 1.2; if (e.y >= 150) { e.cs = 'attack'; e.cyc = 0; g.kid.pop(FORM_NAME[0] + '! ' + WEAK_NAME[0] + 'が よく きく!', 320, 400, '#ff4', 'hint'); } break;
+      case 'attack':
+        e.x = 320 + Math.sin(e.t * 0.01) * 90;
+        if (f === 0) { if (e.cyc % 100 === 50) emberLine(e.cyc % 200 < 100 ? 160 : 480, e.cyc % 200 < 100 ? 1 : -1)(g, X0); if (e.cyc % 70 === 35) shoot(g, 5, 2.8, 3, e.x - 8, e.y + 90); }
+        if (f === 1) { if (e.cyc % 110 === 55) icicles(2, true)(g); if (e.cyc % 90 === 45) shoot(g, 10, 2.0, 2, e.x - 8, e.y + 60, e.t * 80); if (e.cyc === 150) wall(g.px)(g, X0); }
+        if (f === 2) { if (e.cyc % 130 === 30) pairs(e.cyc % 260 < 130 ? 160 : 400, 1, 2)(g, X0); if (e.cyc % 150 === 100) lightning(g, g.px); if (e.cyc % 80 === 40) shoot(g, 3, 3.0, 3, e.x - 8, e.y + 90); }
+        if (f === 3) { if (e.cyc % 120 === 30) vee(e.cyc % 240 < 120 ? 200 : 440, 7)(g, X0); if (e.cyc % 170 === 100) press(g, g.px); if (e.cyc === 60) saws([-20, 1])(g, X0); if (e.cyc % 90 === 45) shoot(g, 3, 3.0, 3, e.x - 8, e.y + 90); }
+        if (e.cyc > 240) { e.cs = 'charge'; e.cyc = 0; audio.lab('charge', 0.8, 0.7); g.kid.pop('なにか くる…!', e.x, e.y + 140, '#fc6'); }
+        break;
+      case 'charge':
+        if (e.cyc > 60) { e.cs = 'blast'; e.cyc = 0; audio.se('release3', 0.8); g.shakeMag = Math.max(g.shakeMag, 6); }
+        break;
+      case 'blast':
+        if (e.cyc % 22 === 0) shoot(g, 12 + f * 2, 2.4, 2, e.x - 8, e.y, e.cyc * 900);
+        if (e.cyc > 50) { e.cs = 'open'; e.cyc = 0; audio.lab('kira2', 0.8, 0.6); g.kid.pop('目が 開いた! いまだ!', e.x, e.y + 150, 'rainbow', 'big'); }
+        break;
+      case 'open':
+        if (e.cyc > 180) { e.cs = 'attack'; e.cyc = 0; }
+        break;
+      case 'change': // the petal of this form breaks off, the next form wakes up
+        if (e.cyc % 6 === 0) { const [dx, dy] = PETAL_AT[f]; g.explosion(e.x + dx + (Math.random() - 0.5) * 80, e.y + dy + (Math.random() - 0.5) * 80, 'M', false); audio.se('enemyDown', 0.9); }
+        g.shakeMag = Math.max(g.shakeMag, 3);
+        if (e.cyc === 40) { e.off[f] = true; audio.se('bossDown', 1); g.kid.shards(e.x + PETAL_AT[f][0], e.y + PETAL_AT[f][1], 40); g.kid.pop('形が かわった!', 320, 220, 'rainbow', 'huge'); }
+        if (e.cyc > 120) { e.form++; e.weakTo = WEAK[e.form]; e.cs = 'attack'; e.cyc = 0; g.kid.pop(FORM_NAME[e.form] + '! ' + WEAK_NAME[e.form] + 'が よく きく!', 320, 400, '#ff4', 'hint'); audio.se('warning', 0.6); }
+        break;
+    }
+    sync(e);
+  };
+  e.draw = (ctx, e, g) => {
+    const alpha = e.cs === 'dying' ? Math.max(0, 1 - e.cyc / 160) : 1, cx = e.cx, cy = e.cy;
+    ctx.save(); ctx.globalAlpha = alpha;
+    const breathe = 1 + Math.sin(e.t * 0.04) * 0.02;
+    draw(ctx, RIG('mzBody'), cx, cy, { scale: 0.9 * breathe });
+    if (e.flash) draw(ctx, RIG('mzBody'), cx, cy, { scale: 0.9 * breathe, add: true, alpha: 0.2 });
+    PETAL_AT.forEach(([dx, dy], k) => {
+      if (e.off[k]) return;
+      const right = dx > 0, wob = Math.sin(e.t * 0.05 + k) * 0.05;
+      ctx.save(); ctx.translate(cx + dx, cy + dy); ctx.rotate((dy > 0 ? 0.6 : -0.2) * (right ? -1 : 1) + wob); if (right) ctx.scale(-1, 1); if (dy > 0) ctx.scale(1, -1);
+      draw(ctx, RIG('mzPetal' + k), 0, 0, { scale: 0.75 });
+      if (k === e.form && e.cs !== 'change') draw(ctx, RIG('mzPetal' + k), 0, 0, { scale: 0.75, add: true, alpha: 0.25 + Math.sin(e.t * 0.15) * 0.15 });
+      ctx.restore();
+    });
+    // the eye: looks at the ship; the lid opens after the blast
+    const a = Math.atan2(g.py - cy, g.px - cx), o = e.open;
+    draw(ctx, RIG('mzEye'), cx, cy, { scale: 0.9 });
+    ctx.save(); ctx.fillStyle = ['#ff4020', '#40a0ff', '#60ff60', '#ffc020'][e.form]; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 16, cy + Math.sin(a) * 14, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(cx + Math.cos(a) * 18, cy + Math.sin(a) * 16, 6, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    if (o < 0.95) draw(ctx, RIG('mzLid'), cx, cy, { sx: 0.9, sy: 0.9 * (1 - o) }); // the lid shrinks open
+    ctx.restore();
+    if (e.cs === 'charge') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; draw(ctx, SPR.glowPink, cx, cy, { scale: 0.4 + e.cyc / 60, add: true, alpha: 0.6 }); ctx.restore(); }
+    if (o > 0.5 && e.cs === 'open') weakRing(ctx, g, cx, cy, 58);
+  };
+  return g.spawn(e);
+}
+
+// ================================================================ the waves
+at(60, hint('マザーの 船に とつにゅう!'));
+at(150, emberLine(200, 1)); at(260, clump(440, 420, 180)); at(380, pairs(160, 1, 3)); at(500, vee(400, 9));
+at(640, emberLine(460, -1)); at(700, icicles(3, true)); at(800, clump(200, 220, 170, 10)); at(900, pairs(380, -1, 3));
+at(1000, vee(200, 7)); at(1020, vee(440, 7, -1)); at(1100, (g) => lightning(g, g.px)); at(1200, wall(320)); at(1260, emberLine(320, 1, 10, 200));
+at(1380, hint('ボスたちが よみがえった!'));
+at(1500, (g) => { // (after a continue the rush goes on from the boss you were at)
+  if (!g.rush) g.rush = { i: 0, at: 0 };
+  g.rush.at = g.t + 30;
+  if (g.rush.i < RUSH.length) { audio.playBgm('boss'); g.mid = {}; g.midDone = false; g.kid.pop('ボスラッシュ!', 320, 240, '#f44', 'huge'); }
+});
+at(1660, (g) => { audio.stopBgm(); g.kid.warning(); });
+at(1910, () => audio.playBgm('final'));
+at(1920, (g, X) => { g.boss = mother(g, X); g.battle = true; });
+at(2080, hint('目が 開いたら いまだ! 形ごとに きく 武器が かわる!'));
+
+const table = makeTable(waves, { pre: (g) => { updateHazards(g); rushStep(g); }, hold: [1500, 1600], bgm: 'final' });
+
+// ================================================================ background: inside the mother ship
+const NEST = freeImg('bg/nest.jpg'), STARS = freeImg('bg/stars.jpg');
+function drawBg(ctx, g) {
+  ctx.fillStyle = '#0a0208'; ctx.fillRect(0, 0, 640, 480);
+  g.scrollY = (g.scrollY || 0) + (g.mega.active ? 0.2 : 1);
+  const sy = g.scrollY;
+  tileY(ctx, NEST, sy * 0.4, 1); tileY(ctx, STARS, sy * 1.2, 0.4, true);
+  ctx.save(); ctx.globalAlpha = 0.75;
+  const y = (sy * 1.3) % 640; draw(ctx, RIG('mzWall'), 320, y - 320); draw(ctx, RIG('mzWall'), 320, y + 320);
+  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.06 + Math.sin(g.t * 0.05) * 0.04; ctx.fillStyle = '#ff2080'; ctx.fillRect(0, 0, 640, 480); ctx.restore(); // the ship's heartbeat
+  drawHazards(ctx, g);
+}
+function portrait(ctx, x, y, s) { draw(ctx, RIG('mzEye'), x, y, { scale: s * 0.5 }); }
+
+const stageFinal = {
+  id: 'final', table, drawBg, portrait, checkpoints: [0, 1490, 1650],
+  onContinue: (g) => {
+    g.hazards = [];
+    if (g.frame >= 1650) { g.midDone = true; g.rush = { i: RUSH.length, at: 0 }; }
+  },
+};
+
+return { mother, stageFinal };
 })();
 
 __M['./stages.js'] = (function () {
 // All stages: the tutorial, the four planets (any order, each gives a weapon) and the final stage.
-// マグマ星 (stageMagma.js) and こおり星 (stageIce.js) are built. The other two are still STAND-INS (the tutorial's waves with their own name /
-// colour / music) until each one is built in its own file.
+// Each stage lives in its own file: stageM1.js (tutorial), stageMagma / stageIce / stageThunder / stageJunk (planets), stageFinal.
 const { stageM1 } = __M['./stageM1.js'];
 const { stageMagma } = __M['./stageMagma.js'];
 const { stageIce } = __M['./stageIce.js'];
-const standIn = (o) => ({ ...stageM1, ...o });
+const { stageThunder } = __M['./stageThunder.js'];
+const { stageJunk } = __M['./stageJunk.js'];
+const { stageFinal } = __M['./stageFinal.js'];
 const TUTORIAL = stageM1;
 const PLANETS = [
   ({ ...stageMagma, id: 'magma', name: 'マグマ星', boss: 'マグマドラゴン', reward: 'hammer', weak: 'drill', bgm: 'magma', color: '#ff6a30', pos: 0 }),
   ({ ...stageIce, id: 'ice', name: 'こおり星', boss: 'フロストビートル', reward: 'ice', weak: 'hammer', bgm: 'ice', color: '#7ad8ff', pos: 1 }),
-  standIn({ id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2 }),
-  standIn({ id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3 }),
+  ({ ...stageThunder, id: 'thunder', name: 'かみなり星', boss: 'サンダーイール', reward: 'lockon', weak: 'ice', bgm: 'thunder', color: '#c8ff40', pos: 2 }),
+  ({ ...stageJunk, id: 'junk', name: 'ジャンク要さい', boss: 'ジャンクゴーレム', reward: 'drill', weak: 'lockon', bgm: 'junk', color: '#ffc040', pos: 3 }),
 ];
-const FINAL = standIn({ id: 'final', name: 'マザー', boss: 'マザー', bgm: 'final', color: '#ff40a0' });
+const FINAL = ({ ...stageFinal, id: 'final', name: 'マザー', boss: 'マザー', bgm: 'final', color: '#ff40a0' });
 const stageById = (id) => [TUTORIAL, ...PLANETS, FINAL].find((s) => s.id === id);
 
 // weapon display data (name / colour) — used by the HUD, the select screen and the result screen
@@ -4268,7 +5559,9 @@ class SelectScene {
   constructor(cur = null) {
     this.t = 0; audio.playBgm('select');
     this.final = clearedCount() >= 4 || debug.on;
-    this.cur = cur ?? Math.max(0, PLANETS.findIndex((s) => !progress.cleared[s.id]));
+    // the cursor starts on the first planet not cleared yet (on the mother ship once all four are)
+    const next = PLANETS.findIndex((s) => !progress.cleared[s.id]);
+    this.cur = cur ?? (next < 0 && this.final ? 4 : Math.max(0, next));
   }
   update() {
     this.t++;
@@ -4430,7 +5723,7 @@ class ResultScene {
     if (this.t > 60 && (decide() || tp)) {
       if (this.t < 280) { this.t = 280; return; }
       audio.stopBgm();
-      go(this.stage.id === 'final' ? new TitleScene() : new SelectScene(this.play.carry.slot ?? null));
+      go(this.stage.id === 'final' ? new EndingScene() : new SelectScene());
     }
   }
   draw(ctx) {
@@ -4466,7 +5759,41 @@ function star(ctx, x, y, r, color) {
   ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
-return { setRouter, GAME_TITLE, BootScene, TitleScene, SelectScene, IntroScene, PlayScene, ResultScene };
+// ---------------------------------------------------------------- ending: the ship flies home past the four planets,
+// the story and the credits roll up, THE END. Input is ignored for the first 10 s (so a held button can't skip it).
+const ENDING = [
+  ['マザーを たおした!', 30, '#ff4'], ['', 20], ['うちゅうの かいじゅうたちは', 22], ['とおくへ にげていった', 22], ['', 20],
+  ['マグマ星も こおり星も', 22], ['かみなり星も ジャンク要さいも', 22], ['しずかに なった', 22], ['', 40],
+  ['MEGA BURST', 34, '#ff4'], ['', 30],
+  ['おんがく', 16, '#9cf'], ['魔王魂', 20], ['', 14],
+  ['こうかおん', 16, '#9cf'], ['効果音ラボ / Kenney', 20], ['', 14],
+  ['え', 16, '#9cf'], ['Kenney / Prime_8 / Screaming Brain Studios', 18], ['', 14],
+  ['もとに なった ゲーム', 16, '#9cf'], ['春王 (2007)', 20], ['', 40],
+  ['あそんでくれて ありがとう!', 26, '#8f8'],
+];
+class EndingScene {
+  constructor() { this.t = 0; audio.playBgm('result'); this.total = Object.values(progress.best).reduce((a, b) => a + b, 0); progress.ending = true; saveProgress(); }
+  update() {
+    this.t++;
+    if (this.t > 600 && (decide() || takeTap())) { audio.stopBgm(); go(new TitleScene()); }
+    if (this.t > 3000) { audio.stopBgm(); go(new TitleScene()); }
+  }
+  draw(ctx) {
+    const t = this.t;
+    backdrop(ctx, t, 'rgba(0,0,20,0.3)');
+    // the four planets drift past
+    PLANETS.forEach((s, i) => { const y = ((t * 0.5 + i * 260) % 1100) - 160; planet(ctx, i % 2 ? 540 : 100, y, 40, s.color, t); });
+    if (ready(SHIP)) { ctx.save(); ctx.translate(W / 2 + Math.sin(t * 0.02) * 40, 380 + Math.sin(t * 0.03) * 8); ctx.drawImage(SHIP, -76 * 0.45, -128 * 0.45, 152 * 0.45, 256 * 0.45); ctx.restore(); }
+    let y = 500 - t * 0.7;
+    for (const [s, size = 20, color = '#fff'] of ENDING) { if (y > -40 && y < 520 && s) text(ctx, s, W / 2, y, { size, align: 'center', color }); y += size + 16; }
+    if (y < 200) { // THE END
+      const k = Math.min(1, (200 - y) / 60);
+      ctx.save(); ctx.globalAlpha = k; label(ctx, 'THE END', W / 2, 200, 56, '#ff4'); text(ctx, `ぜんぶの スコア ${fmt(this.total)}`, W / 2, 250, { size: 20, align: 'center', color: '#cff' }); ctx.restore();
+    }
+    if (t > 600 && Math.floor(t / 25) % 2) text(ctx, hasTouch() ? 'タップで タイトルへ' : 'Z で タイトルへ', W - 20, 470, { size: 13, align: 'right', color: '#8f8' });
+  }
+}
+return { setRouter, GAME_TITLE, BootScene, TitleScene, SelectScene, IntroScene, PlayScene, ResultScene, EndingScene };
 })();
 
 __M['./practice.js'] = (function () {
@@ -4543,7 +5870,8 @@ return { practiceStage, PracticeScene };
 __M['./main.js'] = (function () {
 const { loadImages } = __M['./assets.js'];
 const { audio } = __M['./audio.js'];
-const { hasTouch, initInput, onAnyKey, pollInput, setTouchMode } = __M['./input.js'];
+const { _forceInput, hasTouch, initInput, onAnyKey, pollInput, setTouchMode } = __M['./input.js'];
+const { auto, autoStep } = __M['./autoplay.js'];
 const { debug, save, speed } = __M['./save.js'];
 const { BootScene, PlayScene, setRouter } = __M['./scenes.js'];
 const { stageById } = __M['./stages.js'];
@@ -4569,7 +5897,22 @@ audio.bgmVol = save.bgmVol / 10;
 window.addEventListener('keydown', (e) => {
   if (e.code === 'F9') { debug.on = !debug.on; e.preventDefault(); }
   if (e.code === 'F8') { speed.x2 = !speed.x2; e.preventDefault(); }
+  if (e.code === 'F7') { setAuto(!auto.on); e.preventDefault(); }
 });
+
+// debug autoplay (F7 / ?auto): the bot's buttons replace the real input
+let aCur = {}, aPrev = {};
+function setAuto(on) {
+  auto.on = on; aCur = {}; aPrev = {};
+  _forceInput(on ? (kind, b) => (kind === 3 ? !!aCur[b] : kind === 2 ? !!aCur[b] && !aPrev[b] : !aCur[b] && !!aPrev[b]) : null);
+}
+
+// one logic frame
+function tick() {
+  if (auto.on) { aPrev = aCur; aCur = autoStep(scene); if (scene.onAnyKey && aCur.ok) scene.onAnyKey(); }
+  pollInput();
+  scene.update();
+}
 
 const STEP = 1000 / 60;
 let acc = 0, last = performance.now();
@@ -4578,14 +5921,11 @@ function frame(now) {
   last = now;
   setTouchMode(scene.touchGame ? 'game' : 'menu');
   while (acc >= STEP) {
-    for (let i = speed.x2 ? 2 : 1; i > 0; i--) { // x2: two whole logic frames (input read each time)
-      pollInput();
-      scene.update();
-    }
+    for (let i = speed.x2 ? 2 : 1; i > 0; i--) tick(); // x2: two whole logic frames (input read each time)
     acc -= STEP;
   }
   scene.draw(ctx);
-  const marks = [debug.on && 'DEBUG', speed.x2 && 'x2'].filter(Boolean).join(' ');
+  const marks = [auto.on && 'AUTO', debug.on && 'DEBUG', speed.x2 && 'x2'].filter(Boolean).join(' ');
   if (marks) { // mode markers
     ctx.save(); ctx.font = 'bold 12px monospace'; ctx.textAlign = 'right';
     ctx.fillStyle = '#000'; ctx.fillText(marks, 637, 477); ctx.fillStyle = '#ff0'; ctx.fillText(marks, 636, 476);
@@ -4616,7 +5956,8 @@ loadImages((p) => { boot.textContent = `Loading... ${Math.round(p * 100)}%`; })
     // ?stage=magma&at=2900: straight into a stage (at a frame) for testing
     scene = q.has('practice') ? new PracticeScene() : st ? new PlayScene(st, { startFrame: +(q.get('at') || 0) }) : new BootScene();
     // debug hooks for testing in the console
-    window.__haruou = { get scene() { return scene; }, set scene(s) { scene = s; } };
+    if (q.has('auto')) setAuto(true);
+    window.__haruou = { get scene() { return scene; }, set scene(s) { scene = s; }, step: (n) => { for (let i = 0; i < n; i++) tick(); }, auto: setAuto };
     requestAnimationFrame(frame);
   })
   .catch((e) => { boot.textContent = String(e); });
