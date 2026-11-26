@@ -1890,7 +1890,7 @@ class Kid {
     const chain = depth + 1;
     if (chain >= 2) {
       this.g.score += 100 * chain;
-      if (PRAISE[chain]) { this.pop(PRAISE[chain], e.cx, e.cy - 30, 'rainbow', 'big'); audio.lab('kira2', 0.5, 0.8 + Math.min(chain, 20) * 0.04); }
+      if (PRAISE[chain]) this.praise(chain, e.cx, e.cy - 30);
       else if (chain >= 3) this.pop(`${chain}れんさ`, e.cx, e.cy - 20, '#ff4', 'small');
     }
     const big = n > 10;
@@ -1902,6 +1902,16 @@ class Kid {
   // an enemy bullet wiped by the ring burst / MEGA turns into a small gem
   bulletGem(x, y) { if (this.gems.length < 300) this.gems.push({ x, y, vx: 0, vy: 0, t: 18, small: true }); }
 
+  // only one praise word on screen at a time: two chains reaching 3 together would stack two "ナイス!".
+  // a lower or equal word while one is still showing is skipped; a higher one replaces it.
+  praise(chain, x, y) {
+    const cur = this.texts.find((t) => t.size === 'big' && t.rank);
+    if (cur && cur.rank >= chain) return;
+    if (cur) this.texts.splice(this.texts.indexOf(cur), 1);
+    this.pop(PRAISE[chain], x, y, 'rainbow', 'big');
+    this.texts[this.texts.length - 1].rank = chain;
+    audio.lab('kira2', 0.5, 0.8 + Math.min(chain, 20) * 0.04);
+  }
   pop(text, x, y, color = '#fff', size = 'normal') {
     this.texts.push({ text, x: Math.max(80, Math.min(560, x)), y: Math.max(40, Math.min(440, y)), t: 0, color, size });
     if (this.texts.length > 6) this.texts.shift();
