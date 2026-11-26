@@ -2472,13 +2472,23 @@ const beam = {
     if (a.t >= a.frames) a.dead = true;
   },
   draw(ctx, g, a) {
-    if (a.kind === 'orb') { draw(ctx, SPR.glowPink, a.x, a.y, { scale: 0.45, add: true }); draw(ctx, SPR.flareWhite, a.x, a.y, { scale: 0.5, add: true, rot: g.t * 0.3 }); return; }
+    if (a.kind === 'orb') { // a ball of light with a comet tail
+      for (let i = 1; i <= 4; i++) draw(ctx, SPR.sparkBlue, a.x, a.y + i * 12, { scale: 0.45 - i * 0.08, add: true, alpha: 0.6 - i * 0.12 });
+      draw(ctx, SPR.glowPink, a.x, a.y, { scale: 0.45, add: true }); draw(ctx, SPR.flareWhite, a.x, a.y, { scale: 0.5, add: true, rot: g.t * 0.3 }); return;
+    }
     const w = a.wd * (1 + Math.sin(g.t * 0.9) * 0.12) * Math.min(1, (a.frames - a.t) / 8 + 0.2) * Math.min(1, a.t / 4 + 0.3);
     const grd = ctx.createLinearGradient(a.x - w / 2, 0, a.x + w / 2, 0);
     grd.addColorStop(0, 'rgba(255,200,60,0)'); grd.addColorStop(0.3, 'rgba(255,220,90,0.9)'); grd.addColorStop(0.5, 'rgba(255,255,255,1)'); grd.addColorStop(0.7, 'rgba(255,220,90,0.9)'); grd.addColorStop(1, 'rgba(255,200,60,0)');
     ctx.fillStyle = grd; ctx.fillRect(a.x - w / 2, -50, w, a.bottom + 50);
-    draw(ctx, SPR.flareWhite, a.x, a.bottom, { scale: a.big ? 1.8 : 1.1, add: true });
-    if (a.big) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#6cf'; ctx.fillRect(a.x - w * 0.8, -50, w * 1.6, a.bottom + 50); }
+    if (a.big) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#6cf'; ctx.fillRect(a.x - w * 0.8, -50, w * 1.6, a.bottom + 50); ctx.globalAlpha = 1; }
+    // energy rushing up inside the beam + crackling edges
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 8; i++) { const yy = a.bottom - ((g.t * 26 + i * 67) % (a.bottom + 60)); ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(a.x - w * 0.12 + Math.sin(i * 3.1) * w * 0.15, yy, w * 0.08, 30); }
+    ctx.strokeStyle = a.big ? '#9df' : '#ffe080'; ctx.lineWidth = 2;
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(a.x + side * w / 2, a.bottom); for (let yy = a.bottom; yy > -40; yy -= 30) ctx.lineTo(a.x + side * (w / 2 + Math.random() * (a.big ? 18 : 8)), yy); ctx.stroke(); }
+    ctx.restore();
+    draw(ctx, SPR.flareWhite, a.x, a.bottom, { scale: (a.big ? 1.8 : 1.1) * (1 + Math.sin(g.t) * 0.1), add: true, rot: g.t * 0.2 });
+    draw(ctx, SPR.ring, a.x, a.bottom, { scale: (a.big ? 1.6 : 0.9) * (0.6 + (a.t % 8) / 8), add: true, alpha: 1 - (a.t % 8) / 8 });
   },
 };
 
@@ -2511,6 +2521,7 @@ const hammer = {
         for (const b of g.bullets.list) if (Math.hypot(b.cx - a.x, b.cy - a.y) < 170) { g.bullets.pool.free(b); g.kid.bulletGem(b.cx, b.cy); }
         for (let i = 0; i < 6; i++) g.blast(a.x + Math.cos(i) * 80, a.y + Math.sin(i) * 60);
         g.kid.shards(a.x, a.y, 30);
+        g.show?.ring(a.x, a.y, 200, '255,150,90', 30, 12); g.show?.ring(a.x, a.y, 120, '255,255,255', 18, 6); g.show?.chunks(a.x, a.y, 16, 9);
       }
       if (a.wave != null) {
         a.wave += 12;
@@ -2521,8 +2532,14 @@ const hammer = {
   },
   draw(ctx, g, a) {
     const p = g.p, big = a.kind === 'slam' ? 2.2 : 1;
+    a.ghost = a.ghost || []; a.ghost.push([a.x, a.y]); if (a.ghost.length > 6) a.ghost.shift();
     if (a.kind !== 'slam') chain(ctx, p.x, p.y - 10, a.x, a.y);
     const hdImg = hammerHead();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; // motion trail: hot afterimages
+    a.ghost.forEach(([gx, gy], i) => draw(ctx, SPR.fire, gx, gy, { scale: (0.2 + i * 0.05) * big, add: true, alpha: 0.12 + i * 0.06, rot: i }));
+    if (a.kind === 'spin') { ctx.strokeStyle = 'rgba(255,110,60,0.45)'; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(p.x, p.y, 74, a.ang - 1.4, a.ang); ctx.stroke(); }
+    if (a.kind === 'slam' && a.t < 24) { ctx.strokeStyle = 'rgba(255,220,160,0.5)'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const lx = a.x + (i - 2.5) * 26; ctx.beginPath(); ctx.moveTo(lx, a.y - 70); ctx.lineTo(lx, a.y - 130 - (i % 2) * 30); ctx.stroke(); } }
+    ctx.restore();
     if (hdImg) { ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.kind === 'spin' ? a.ang + Math.PI / 2 : Math.sin(a.t * 0.4) * 0.2); ctx.scale(big * 0.7, big * 0.7); ctx.drawImage(hdImg, -32, -32); ctx.restore(); }
     draw(ctx, SPR.flareRed, a.x, a.y, { scale: 0.25 * big, add: true });
     if (a.wave != null) { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - a.wave / 180); ctx.strokeStyle = '#ff8a50'; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(a.x, a.y, a.wave, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
@@ -2566,14 +2583,15 @@ const lockon = {
     a.y = u * u * u * a.y0 + 3 * u * u * k * p1[1] + 3 * u * k * k * p2[1] + k * k * k * a.ty;
     a.trail.push([a.x, a.y]); if (a.trail.length > 12) a.trail.shift();
     if (k >= 1) {
-      if (a.target && !a.target.dead) { damage(g, a.target, 7 * a.mul, 'laser'); g.pfx.spawn(a.x, a.y, 10, 8); audio.se('hit', 0.3); }
+      if (a.target && !a.target.dead) { damage(g, a.target, 7 * a.mul, 'laser'); g.pfx.spawn(a.x, a.y, 10, 8); audio.se('hit', 0.3); g.show?.ring(a.x, a.y, 40, '120,255,170', 14, 4); }
       a.dead = true;
     }
   },
   draw(ctx, g, a) {
     if (a.t < 0 || a.trail.length < 2) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    for (const [lw, col] of [[8, 'rgba(60,255,140,0.35)'], [3, '#d8ffe4']]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); a.trail.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
+    for (const [lw, col] of [[14, 'rgba(40,255,120,0.18)'], [8, 'rgba(60,255,140,0.35)'], [3, '#d8ffe4']]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); a.trail.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
+    draw(ctx, SPR.flareWhite, a.x, a.y, { scale: 0.16, add: true, rot: g.t * 0.4 }); // the bright head of the laser
     ctx.restore();
   },
 };
@@ -2595,12 +2613,18 @@ const ice = {
   update(g, a) {
     if (a.kind === 'wave') { if (a.t > 30) a.dead = true; return; }
     a.x += a.vx; a.y += a.vy;
-    for (const e of g.enemies) if (hitAny(e, a.x, a.y, 14)) { damage(g, e, 3 * a.mul, 'ice'); freeze(g, e, 180); g.pfx.spawn(a.x, a.y, 1, 6); a.dead = true; break; }
+    for (const e of g.enemies) if (hitAny(e, a.x, a.y, 14)) { damage(g, e, 3 * a.mul, 'ice'); freeze(g, e, 180); g.pfx.spawn(a.x, a.y, 1, 6); g.show?.ring(a.x, a.y, 50, '190,240,255', 16, 5); a.dead = true; break; }
     if (a.y < -40 || a.x < -40 || a.x > 680) a.dead = true;
   },
   draw(ctx, g, a) {
-    if (a.kind === 'wave') { ctx.save(); ctx.globalAlpha = 1 - a.t / 30; ctx.strokeStyle = '#bff'; ctx.lineWidth = 20; ctx.beginPath(); ctx.arc(a.x, a.y, a.t * 28, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); return; }
-    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(Math.atan2(a.vy, a.vx) + Math.PI / 2);
+    if (a.kind === 'wave') {
+      ctx.save(); ctx.globalAlpha = 1 - a.t / 30; ctx.strokeStyle = '#bff'; ctx.lineWidth = 20; ctx.beginPath(); ctx.arc(a.x, a.y, a.t * 28, 0, Math.PI * 2); ctx.stroke();
+      // frost creeping in from the screen edges
+      const fr = ctx.createRadialGradient(320, 240, 160, 320, 240, 420); fr.addColorStop(0, 'rgba(200,240,255,0)'); fr.addColorStop(1, 'rgba(200,240,255,0.7)');
+      ctx.fillStyle = fr; ctx.fillRect(0, 0, 640, 480); ctx.restore(); return;
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 1; i <= 3; i++) draw(ctx, SPR.sparkWhite, a.x - a.vx * i * 1.5 + Math.sin(g.t + i) * 3, a.y - a.vy * i * 1.5, { scale: 0.18 - i * 0.04, add: true, alpha: 0.7 }); ctx.restore(); // sparkling trail
+    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(Math.atan2(a.vy, a.vx) + Math.PI / 2); ctx.scale(1.3, 1.3);
     ctx.fillStyle = '#dff'; ctx.strokeStyle = '#5ce'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(6, 0); ctx.lineTo(0, 12); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     draw(ctx, SPR.sparkBlue, a.x, a.y, { scale: 0.2, add: true });
@@ -2643,6 +2667,11 @@ const drill = {
     ctx.fillStyle = '#c0c8d4'; ctx.fillRect(-6, 4, 12, 10);
     ctx.restore();
     draw(ctx, SPR.flareRed, a.x, a.y + 14 * s, { scale: 0.12 * s, add: true });
+    // sparks spiralling off the tip + a light cone ahead of the giant drill
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < (a.kind === 'giant' ? 6 : 2); i++) { const ang = g.t * 0.6 + i * 2.1, r = 8 * s; draw(ctx, SPR.sparkWhite, a.x + Math.cos(ang) * r, a.y - 10 * s + Math.sin(ang) * r * 0.4, { scale: 0.1 * Math.sqrt(s), add: true, alpha: 0.8 }); }
+    if (a.kind === 'giant') draw(ctx, SPR.flareWhite, a.x, a.y - 60, { scale: 0.8, sy: 1.4, add: true, alpha: 0.35 });
+    ctx.restore();
   },
 };
 
@@ -3437,9 +3466,11 @@ class Game {
     if (this.stageDef.drawBg) this.stageDef.drawBg(ctx, this); else { ctx.fillStyle = '#05030c'; ctx.fillRect(0, 0, W, H); }
     this.show.drawShadows(ctx);
     for (const e of this.enemies) {
-      if (e.flash > 0) { // a hit makes it shudder
-        const j = e.boss || e.big ? 2 : 3;
-        ctx.save(); ctx.translate((Math.random() - 0.5) * j * 2, (Math.random() - 0.5) * j * 2); e.draw(ctx, e, this); ctx.restore();
+      const small = !e.boss && !e.big && e.dmg?.body !== 0;
+      if (e.flash > 0 || small) { // a hit makes it shudder; small monsters breathe (they look alive)
+        const j = e.flash > 0 ? (e.boss || e.big ? 2 : 3) : 0, b = small ? 1 + Math.sin(this.t * 0.12 + (e.x | 0) * 0.05) * 0.04 : 1;
+        ctx.save(); ctx.translate(e.cx + (Math.random() - 0.5) * j * 2, e.cy + (Math.random() - 0.5) * j * 2); ctx.scale(b, 2 - b); ctx.translate(-e.cx, -e.cy);
+        e.draw(ctx, e, this); ctx.restore();
       } else e.draw(ctx, e, this);
       if (e.frozen > 0) { // ice block
         const r = e.r + 8, a = Math.min(1, e.frozen / 30);
